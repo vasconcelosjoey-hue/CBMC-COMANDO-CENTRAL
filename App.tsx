@@ -25,14 +25,14 @@ const App: React.FC = () => {
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // FUNÇÃO DE ORDENAÇÃO INSTITUCIONAL OFICIAL (FUNDADORES > EFETIVOS > MOCO > JAKÃO)
+  // FUNÇÃO DE ORDENAÇÃO INSTITUCIONAL OFICIAL (F4 > NÚMEROS > MOCO > JAKÃO)
   const sortMembers = useCallback((list: Member[]) => {
     return [...list].sort((a, b) => {
       const getPriority = (m: Member) => {
-        if (m.cumbraId.startsWith('F4-')) return 1; // Fundadores
+        if (m.cumbraId.startsWith('F4-')) return 1;
         const num = parseInt(m.cumbraId);
-        if (!isNaN(num)) return 2; // Efetivos Numéricos
-        return 3; // Prósperos (Moco e Jakão)
+        if (!isNaN(num)) return 2;
+        return 3; 
       };
 
       const pA = getPriority(a);
@@ -40,19 +40,15 @@ const App: React.FC = () => {
 
       if (pA !== pB) return pA - pB;
 
-      // Ordem interna para Fundadores (F4-01, F4-02, F4-03)
       if (pA === 1) {
-        const numA = parseInt(a.cumbraId.split('-')[1]);
-        const numB = parseInt(b.cumbraId.split('-')[1]);
-        return numA - numB;
+        return parseInt(a.cumbraId.split('-')[1]) - parseInt(b.cumbraId.split('-')[1]);
       }
 
-      // Ordem interna para Efetivos (10, 11, 12, 15, 16, 17, 20, 23, 24, 25)
       if (pA === 2) {
         return parseInt(a.cumbraId) - parseInt(b.cumbraId);
       }
 
-      // Ordem específica para Prósperos: MOCO depois JAKÃO
+      // Ordem específica para Prósperos: MOCO antes de JAKÃO
       if (a.name === 'MOCO') return -1;
       if (b.name === 'MOCO') return 1;
       if (a.name === 'JAKÃO') return 1;
@@ -65,8 +61,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "members_data", "current"), (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data().list || MOCK_MEMBERS;
-        setMembers(sortMembers(data));
+        setMembers(docSnap.data().list || []);
       } else {
         const sortedMock = sortMembers(MOCK_MEMBERS);
         setMembers(sortedMock);
@@ -90,17 +85,25 @@ const App: React.FC = () => {
     try {
       await setDoc(doc(db, "dashboard", "images"), { hero: url }, { merge: true });
     } catch (e) {
-      console.error("Erro ao atualizar Brasão na nuvem:", e);
+      console.error("Erro ao atualizar Brasão:", e);
     }
   };
 
   const handleUpdatePhoto = async (memberId: string, newPhotoUrl: string) => {
     const updatedMembers = members.map(m => m.id === memberId ? { ...m, photoUrl: newPhotoUrl } : m);
-    const sorted = sortMembers(updatedMembers);
     try {
-      await setDoc(doc(db, "members_data", "current"), { list: sorted });
+      await setDoc(doc(db, "members_data", "current"), { list: updatedMembers });
     } catch (e) {
-      console.error("Erro ao sincronizar foto de perfil:", e);
+      console.error("Erro ao sincronizar foto:", e);
+    }
+  };
+
+  const handleUpdateRoster = async (newList: Member[]) => {
+    setMembers(newList);
+    try {
+      await setDoc(doc(db, "members_data", "current"), { list: newList });
+    } catch (e) {
+      console.error("Erro ao salvar nova ordem de rodízio:", e);
     }
   };
 
@@ -134,7 +137,16 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard members={members} heroImage={heroImage} onUpdateHero={handleUpdateHero} userRole={currentUser.role} onBack={handleLogout} />;
+      case 'dashboard': return (
+        <Dashboard 
+          members={members} 
+          heroImage={heroImage} 
+          onUpdateHero={handleUpdateHero} 
+          onUpdateRoster={handleUpdateRoster}
+          userRole={currentUser.role} 
+          onBack={handleLogout} 
+        />
+      );
       case 'presidency': return <Presidency userRole={currentUser.role} onBack={() => setActiveTab('dashboard')} onNavigateToAnnualChecklist={() => handleTabChange('annual-checklist')} />;
       case 'annual-checklist': return <AnnualChecklist members={members} userRole={currentUser.role} onBack={() => setActiveTab('presidency')} />;
       case 'announcements': return <Announcements userRole={currentUser.role} onBack={() => setActiveTab('dashboard')} />;
@@ -143,7 +155,7 @@ const App: React.FC = () => {
       case 'checklists': return <Checklists onBack={() => setActiveTab('dashboard')} />;
       case 'calendar': return <Calendar onBack={() => setActiveTab('dashboard')} />;
       case 'archive': return <Archive onBack={() => setActiveTab('dashboard')} />;
-      default: return <Dashboard members={members} heroImage={heroImage} onUpdateHero={handleUpdateHero} userRole={currentUser.role} onBack={handleLogout} />;
+      default: return <Dashboard members={members} heroImage={heroImage} onUpdateHero={handleUpdateHero} onUpdateRoster={handleUpdateRoster} userRole={currentUser.role} onBack={handleLogout} />;
     }
   };
 

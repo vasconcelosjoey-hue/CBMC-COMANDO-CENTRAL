@@ -1,6 +1,6 @@
 
-import React, { useRef, useState, useMemo, useEffect } from 'react';
-import { SectionTitle, BackButton } from '../components/UI.tsx';
+import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
+import { SectionTitle } from '../components/UI.tsx';
 import { Role, Member } from '../types.ts';
 import { db } from '../firebase.ts';
 import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -18,6 +18,7 @@ interface DashboardProps {
   members: Member[];
   heroImage: string | null;
   onUpdateHero: (url: string | null) => void;
+  onUpdateRoster: (newList: Member[]) => void;
   userRole: Role;
   onBack: () => void;
 }
@@ -69,11 +70,11 @@ const SlotBox: React.FC<{
           </button>
         </div>
       )}
-      <span className="text-[10px] sm:text-[12px] md:text-[18px] font-black font-mono leading-none truncate uppercase tracking-tighter">
+      <span className="text-[12px] sm:text-[14px] md:text-[20px] font-black font-mono leading-none truncate uppercase tracking-tighter">
         {slot.active ? slot.label : 'VAGO'}
       </span>
       {slot.active && slot.sublabel && (
-        <span className="text-[7px] sm:text-[9px] md:text-[12px] font-bold font-mono leading-none mt-1 opacity-70 truncate uppercase tracking-tighter">
+        <span className="text-[8px] sm:text-[10px] md:text-[13px] font-bold font-mono leading-none mt-1 opacity-70 truncate uppercase tracking-tighter">
           {slot.sublabel}
         </span>
       )}
@@ -81,42 +82,35 @@ const SlotBox: React.FC<{
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero, userRole, onBack }) => {
+const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero, onUpdateRoster, userRole, onBack }) => {
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [slots, setSlots] = useState<Record<string, DispositivoSlot>>(DEFAULT_SLOTS_DATA);
   const [loading, setLoading] = useState(true);
   const [viewMonth, setViewMonth] = useState(new Date().getMonth());
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
-  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [draggedSlotId, setDraggedSlotId] = useState<string | null>(null);
+  const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dispositivoRef = useRef<HTMLDivElement>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
   
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
-
   const monthsList = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
   const weekdays = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
 
-  // LOGICA DE ESCALA INTELIGENTE (RESPONSIVA)
-  const getMemberForDate = (day: number, month: number, year: number) => {
+  // LÓGICA DE ESCALA INTELIGENTE (RODÍZIO RESPONSIVO)
+  const getMemberForDate = useCallback((day: number, month: number, year: number) => {
     if (!members.length) return "CARREGANDO...";
-    
-    // Epoch: 01/01/2026 -> Johnny (Index 0)
     const epoch = new Date(2026, 0, 1);
     const target = new Date(year, month, day);
-    
     const diffTime = target.getTime() - epoch.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Ajuste para dias negativos (antes de 2026) se necessário
-    const rosterSize = members.length;
-    const index = ((diffDays % rosterSize) + rosterSize) % rosterSize;
-    
+    const index = ((diffDays % members.length) + members.length) % members.length;
     const m = members[index];
     if (m.role === Role.PROSPERO) return `PRÓSPERO ${m.name}`;
     return `${m.cumbraId} ${m.name}`;
-  };
+  }, [members]);
 
   const currentScaleData = useMemo(() => {
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -129,12 +123,12 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         member: getMemberForDate(day, viewMonth, viewYear)
       };
     });
-  }, [viewMonth, viewYear, members]);
+  }, [viewMonth, viewYear, members, getMemberForDate]);
 
   const todayDuty = useMemo(() => {
     const now = new Date();
     return getMemberForDate(now.getDate(), now.getMonth(), now.getFullYear());
-  }, [members]);
+  }, [getMemberForDate]);
 
   useEffect(() => {
     const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), (docSnap) => {
@@ -145,6 +139,17 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     return () => unsubSlots();
   }, []);
 
+  // DRAG & DROP DO RODÍZIO (MUDAR A INTELIGÊNCIA DA ESCALA)
+  const handleMemberDragStart = (index: number) => setDraggedMemberIndex(index);
+  const handleMemberDrop = (targetIndex: number) => {
+    if (draggedMemberIndex === null || draggedMemberIndex === targetIndex) return;
+    const newList = [...members];
+    const [moved] = newList.splice(draggedMemberIndex, 1);
+    newList.splice(targetIndex, 0, moved);
+    onUpdateRoster(newList);
+    setDraggedMemberIndex(null);
+  };
+
   const handleUpdateSlot = async (id: string, field: keyof DispositivoSlot, value: any) => {
     const newSlots = { ...slots, [id]: { ...slots[id], [field]: value } };
     setSlots(newSlots);
@@ -153,28 +158,27 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     } catch (e) { console.error(e); }
   };
 
-  const handleDragStart = (id: string) => setDraggedId(id);
-
-  const handleDrop = async (targetId: string) => {
-    if (!draggedId || draggedId === targetId) return;
+  const handleSlotDragStart = (id: string) => setDraggedSlotId(id);
+  const handleSlotDrop = async (targetId: string) => {
+    if (!draggedSlotId || draggedSlotId === targetId) return;
     const newSlots = { ...slots };
-    const temp = { ...newSlots[draggedId] };
-    newSlots[draggedId] = { ...newSlots[targetId], id: draggedId };
+    const temp = { ...newSlots[draggedSlotId] };
+    newSlots[draggedSlotId] = { ...newSlots[targetId], id: draggedSlotId };
     newSlots[targetId] = { ...temp, id: targetId };
     setSlots(newSlots);
-    setDraggedId(null);
+    setDraggedSlotId(null);
     try {
       await setDoc(doc(db, "dashboard", "slots"), newSlots);
-    } catch (e) { console.error("Erro ao sincronizar troca:", e); }
+    } catch (e) { console.error(e); }
   };
 
-  const handleHeroFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => onUpdateHero(reader.result as string);
-      reader.readAsDataURL(file);
-    }
+  const navigateMonth = (direction: number) => {
+    let nextMonth = viewMonth + direction;
+    let nextYear = viewYear;
+    if (nextMonth < 0) { nextMonth = 11; nextYear--; }
+    if (nextMonth > 11) { nextMonth = 0; nextYear++; }
+    setViewMonth(nextMonth);
+    setViewYear(nextYear);
   };
 
   const exportAsImage = (ref: React.RefObject<HTMLDivElement>, name: string) => {
@@ -186,15 +190,6 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         link.href = dataUrl;
         link.click();
       });
-  };
-
-  const navigateMonth = (direction: number) => {
-    let nextMonth = viewMonth + direction;
-    let nextYear = viewYear;
-    if (nextMonth < 0) { nextMonth = 11; nextYear--; }
-    if (nextMonth > 11) { nextMonth = 0; nextYear++; }
-    setViewMonth(nextMonth);
-    setViewYear(nextYear);
   };
 
   if (loading) return (
@@ -221,7 +216,14 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
             </div>
           </div>
           <div className="w-full md:w-1/3 flex justify-center order-1 md:order-2">
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleHeroFileChange} />
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
+               const file = e.target.files?.[0];
+               if (file) {
+                 const reader = new FileReader();
+                 reader.onloadend = () => onUpdateHero(reader.result as string);
+                 reader.readAsDataURL(file);
+               }
+            }} />
             <div 
               onClick={() => isAdmin && fileInputRef.current?.click()}
               className={`w-40 h-40 md:w-72 md:h-72 bg-black border-4 border-white shadow-brutal-red overflow-hidden relative group ${isAdmin ? 'cursor-pointer' : ''}`}
@@ -234,11 +236,6 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                     <span className="text-mc-red text-4xl">⚓</span>
                   </div>
                   <span className="text-white font-mono text-[10px] uppercase opacity-20 tracking-widest">Brasão Oficial</span>
-                </div>
-              )}
-              {isAdmin && (
-                <div className="absolute inset-0 bg-mc-red/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border-4 border-white m-2 text-center">
-                  <span className="text-white font-mono font-black text-xs uppercase tracking-widest p-4">Trocar Brasão</span>
                 </div>
               )}
             </div>
@@ -261,52 +258,66 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         </div>
       </div>
 
+      {/* RODÍZIO TÁTICO (DRAGGABLE ROSTER) */}
+      <div className="space-y-6">
+        <SectionTitle title="ORDEM DE RODÍZIO" subtitle="Arraste para mudar a Fila Tática" />
+        <div className="max-w-5xl mx-auto bg-mc-gray border-4 border-white p-4 overflow-x-auto shadow-brutal-red">
+           <div className="flex gap-2 min-w-max pb-2">
+              {members.map((m, idx) => (
+                 <div 
+                   key={m.id}
+                   draggable={isAdmin}
+                   onDragStart={() => handleMemberDragStart(idx)}
+                   onDragOver={(e) => e.preventDefault()}
+                   onDrop={() => handleMemberDrop(idx)}
+                   className={`px-4 py-2 border-2 font-mono font-black text-xs uppercase cursor-move transition-all flex items-center gap-2 whitespace-nowrap ${
+                     m.role === Role.PROSPERO ? 'bg-mc-yellow text-black border-black' : 'bg-white text-black border-mc-red'
+                   } hover:scale-105 active:scale-95`}
+                 >
+                    <span className="opacity-40">⠿</span>
+                    {m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`}
+                 </div>
+              ))}
+           </div>
+        </div>
+      </div>
+
       {/* DISPOSITIVO DE REUNIÃO */}
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <SectionTitle title="DISPOSITIVO DE REUNIÃO" subtitle="Organização de Assentos Administrativos" />
-          <button 
-            onClick={() => exportAsImage(dispositivoRef, 'dispositivo')}
-            className="bg-black text-white font-mono text-[10px] font-black p-3 border-2 border-mc-red shadow-brutal-small hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
-          >
-            📸 EXPORTAR DISPOSITIVO JPG
-          </button>
+          <button onClick={() => exportAsImage(dispositivoRef, 'dispositivo')} className="bg-black text-white font-mono text-[10px] font-black p-3 border-2 border-mc-red shadow-brutal-small">📸 EXPORTAR DISPOSITIVO</button>
         </div>
-        
         <div ref={dispositivoRef} className="max-w-5xl mx-auto bg-black border-4 border-white p-4 md:p-10 shadow-brutal-red relative">
             <div className="grid grid-cols-3 gap-2 mb-4">
               <div className="invisible"></div>
-              {slots['T1'] && <SlotBox slot={slots['T1']} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleDragStart} onDrop={handleDrop} />}
+              {slots['T1'] && <SlotBox slot={slots['T1']} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />}
               <div className="invisible"></div>
             </div>
             <div className="grid grid-cols-3 gap-4 items-stretch">
               <div className="flex flex-col gap-2">
-                {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleDragStart} onDrop={handleDrop} />)}
+                {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />)}
               </div>
               <div className="bg-mc-gray border-4 border-mc-red flex flex-col items-center justify-center min-h-[150px] md:min-h-[350px] relative overflow-hidden">
                 <div className="z-20 p-2 transform -rotate-90 flex flex-col items-center justify-center">
-                  <span className="text-mc-red font-display text-5xl md:text-[6vw] block leading-none font-black tracking-tighter drop-shadow-[4px_4px_0px_rgba(255,255,255,1)]">CBMC</span>
-                  <div className="h-1 bg-mc-red w-32 md:w-56 my-2 md:my-4"></div>
-                  <span className="text-white font-mono text-[9px] md:text-xs uppercase font-black tracking-[0.4em] opacity-80 whitespace-nowrap">MESA DE COMANDO</span>
+                  <span className="text-mc-red font-display text-4xl md:text-[5vw] block leading-none font-black tracking-tighter drop-shadow-[3px_3px_0px_rgba(255,255,255,1)]">CBMC</span>
+                  <div className="h-1 bg-mc-red w-32 md:w-56 my-2"></div>
+                  <span className="text-white font-mono text-[8px] md:text-[10px] uppercase font-black tracking-[0.4em] opacity-80 whitespace-nowrap">MESA DE COMANDO</span>
                 </div>
-                {/* Visual accents for the table */}
-                <div className="absolute inset-0 border-[10px] border-black opacity-20 pointer-events-none"></div>
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-full bg-mc-red/20"></div>
-                <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full h-px bg-mc-red/20"></div>
               </div>
               <div className="flex flex-col gap-2">
-                {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleDragStart} onDrop={handleDrop} />)}
+                {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />)}
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 mt-4">
               <div className="invisible"></div>
-              {slots['B1'] && <SlotBox slot={slots['B1']} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleDragStart} onDrop={handleDrop} />}
+              {slots['B1'] && <SlotBox slot={slots['B1']} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />}
               <div className="invisible"></div>
             </div>
         </div>
       </div>
 
-      {/* ESCALA COMPLETA COM NAVEGAÇÃO */}
+      {/* ESCALA COMPLETA */}
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex flex-col items-center md:items-start">
@@ -321,12 +332,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                 <button onClick={() => navigateMonth(1)} className="text-mc-red hover:scale-125 transition-transform font-black text-xl">▶</button>
              </div>
           </div>
-          <button 
-            onClick={() => exportAsImage(checklistRef, 'escala-mensal')}
-            className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center gap-2"
-          >
-            📸 EXPORTAR ESCALA JPG
-          </button>
+          <button onClick={() => exportAsImage(checklistRef, 'escala-mensal')} className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small">📸 EXPORTAR ESCALA</button>
         </div>
 
         <div ref={checklistRef} className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document overflow-hidden">
@@ -346,9 +352,9 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                    <tbody>
                       {currentScaleData.map((row: any, idx: number) => (
                          <tr key={idx} className={`border-b border-black/5 ${row.date.split('/')[0] === new Date().getDate().toString().padStart(2, '0') && viewMonth === new Date().getMonth() ? 'bg-mc-yellow/40' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                            <td className="p-3 text-center font-mono text-xs text-black border-r border-black/5 font-bold">{row.date}</td>
+                            <td className="p-3 text-center font-mono text-[12px] md:text-sm text-black border-r border-black/5 font-bold">{row.date}</td>
                             <td className="p-3 font-mono text-[10px] text-black border-r border-black/5 font-black uppercase opacity-60">{row.weekday}</td>
-                            <td className="p-3 font-mono font-black text-sm md:text-base uppercase">{row.member}</td>
+                            <td className="p-3 font-mono font-black text-[14px] md:text-lg uppercase">{row.member}</td>
                          </tr>
                       ))}
                    </tbody>
