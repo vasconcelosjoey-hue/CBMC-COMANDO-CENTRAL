@@ -22,8 +22,6 @@ interface DashboardProps {
   onBack: () => void;
 }
 
-const DEFAULT_SLOTS_ORDER = ['T1', 'B1', 'L1', 'L2', 'L3', 'L4', 'L5', 'R1', 'R2', 'R3', 'R4', 'R5'];
-
 const DEFAULT_SLOTS_DATA: Record<string, DispositivoSlot> = {
   'T1': { id: 'T1', label: 'F4-03 PERVERSO', sublabel: 'PRESIDENTE', color: 'red', active: true },
   'B1': { id: 'B1', label: '24 JB', sublabel: 'SECRETÁRIO', color: 'red', active: true },
@@ -99,16 +97,12 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
 
   useEffect(() => {
-    // Listener Slots
-    const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), 
-      (docSnap) => {
-        if (docSnap.exists()) setSlots(docSnap.data() as Record<string, DispositivoSlot>);
-        else setDoc(doc(db, "dashboard", "slots"), DEFAULT_SLOTS_DATA);
-        setLoading(false);
-      }
-    );
+    const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), (docSnap) => {
+      if (docSnap.exists()) setSlots(docSnap.data() as Record<string, DispositivoSlot>);
+      else setDoc(doc(db, "dashboard", "slots"), DEFAULT_SLOTS_DATA);
+      setLoading(false);
+    });
 
-    // Listener para buscar escala do dia atual e escala mensal completa
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -117,19 +111,17 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
 
     const currentDayStr = `${now.getDate().toString().padStart(2, '0')}/${(currentMonth + 1).toString().padStart(2, '0')}/${currentYear}`;
     
-    const unsubMaintenance = onSnapshot(doc(db, "maintenance", `maintenance_${currentMonth}_${currentYear}`), 
-      (docSnap) => {
-        if (docSnap.exists()) {
-          const daily = docSnap.data().daily || [];
-          setMonthlyData(daily);
-          const entry = daily.find((d: any) => d.date === currentDayStr);
-          setTodayDuty(entry ? entry.member : "NÃO DEFINIDO");
-        } else {
-          setTodayDuty("ESCALA NÃO GERADA");
-          setMonthlyData([]);
-        }
+    const unsubMaintenance = onSnapshot(doc(db, "maintenance", `maintenance_${currentMonth}_${currentYear}`), (docSnap) => {
+      if (docSnap.exists()) {
+        const daily = docSnap.data().daily || [];
+        setMonthlyData(daily);
+        const entry = daily.find((d: any) => d.date === currentDayStr);
+        setTodayDuty(entry ? entry.member : "NÃO DEFINIDO");
+      } else {
+        setTodayDuty("ESCALA NÃO GERADA");
+        setMonthlyData([]);
       }
-    );
+    });
 
     return () => { unsubSlots(); unsubMaintenance(); };
   }, []);
@@ -142,22 +134,16 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
     } catch (e) { console.error(e); }
   };
 
-  const handleDragStart = (id: string) => {
-    setDraggedId(id);
-  };
+  const handleDragStart = (id: string) => setDraggedId(id);
 
   const handleDrop = async (targetId: string) => {
     if (!draggedId || draggedId === targetId) return;
-
-    // Lógica de Swap (Troca)
     const newSlots = { ...slots };
     const temp = { ...newSlots[draggedId] };
     newSlots[draggedId] = { ...newSlots[targetId], id: draggedId };
     newSlots[targetId] = { ...temp, id: targetId };
-
     setSlots(newSlots);
     setDraggedId(null);
-
     try {
       await setDoc(doc(db, "dashboard", "slots"), newSlots);
     } catch (e) { console.error("Erro ao sincronizar troca:", e); }
@@ -186,13 +172,12 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-40">
       <div className="w-12 h-12 border-4 border-mc-red border-t-transparent animate-spin mb-4"></div>
-      <span className="font-mono text-xs font-black uppercase tracking-widest">Acessando Comando...</span>
+      <span className="font-mono text-xs font-black uppercase tracking-widest">Sincronizando...</span>
     </div>
   );
 
   return (
     <div className="space-y-10 md:space-y-20 pb-20">
-      
       {/* HERO SECTION */}
       <div className="relative bg-mc-red border-4 border-white shadow-brutal-white min-h-[300px] md:min-h-[450px] overflow-hidden flex items-center">
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-10 pointer-events-none select-none">
@@ -225,7 +210,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
               )}
               {isAdmin && (
                 <div className="absolute inset-0 bg-mc-red/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border-4 border-white m-2 text-center">
-                  <span className="text-white font-mono font-black text-xs uppercase tracking-widest p-4">Trocar Brasão da Unidade</span>
+                  <span className="text-white font-mono font-black text-xs uppercase tracking-widest p-4">Trocar Brasão</span>
                 </div>
               )}
             </div>
@@ -233,19 +218,17 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
         </div>
       </div>
 
-      {/* MISSÃO DO DIA - ABAIXO DO HERO */}
+      {/* MISSÃO DO DIA */}
       <div className="max-w-4xl mx-auto">
         <div className="bg-mc-yellow border-4 border-black p-4 md:p-6 shadow-brutal-red flex flex-col md:flex-row items-center gap-6 animate-pulse-soft">
           <div className="bg-black text-white p-3 font-mono text-xs font-black uppercase tracking-widest leading-none text-center md:text-left">
             MISSÃO<br/>DO DIA
           </div>
           <div className="flex-1 text-center md:text-left">
-            <span className="text-black font-display text-4xl md:text-6xl leading-none uppercase tracking-tighter block">
+            <span className="text-black font-display text-4xl md:text-6xl leading-none uppercase tracking-tighter block truncate">
               {todayDuty}
             </span>
-            <span className="text-black font-mono text-[10px] font-black uppercase opacity-60 tracking-widest">
-              CUMPADRE RESPONSÁVEL PELA MANUTENÇÃO OFICIAL
-            </span>
+            <span className="text-black font-mono text-[10px] font-black uppercase opacity-60 tracking-widest">RESPONSÁVEL PELA MANUTENÇÃO</span>
           </div>
         </div>
       </div>
@@ -274,10 +257,9 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
               </div>
               <div className="bg-mc-gray border-4 border-mc-red flex flex-col items-center justify-center min-h-[150px] md:min-h-[300px] relative overflow-hidden">
                 <div className="text-center opacity-20">
-                  <span className="text-white font-display text-5xl md:text-7xl block leading-none">MESA</span>
+                  <span className="text-white font-display text-5xl md:text-7xl block leading-none uppercase">MESA</span>
                   <span className="text-white font-mono text-[10px] md:text-xs uppercase font-black tracking-[0.5em]">DE COMANDO</span>
                 </div>
-                <div className="absolute inset-0 border border-mc-red/10 pointer-events-none"></div>
               </div>
               <div className="flex flex-col gap-2">
                 {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleDragStart} onDrop={handleDrop} />)}
@@ -291,7 +273,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
         </div>
       </div>
 
-      {/* ESCALA COMPLETA DO MÊS */}
+      {/* ESCALA COMPLETA */}
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <SectionTitle title="ESCALA COMPLETA" subtitle={`Monitoramento Mensal - ${currentMonthStr}`} />
@@ -339,25 +321,19 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
 
       {editingSlotId && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4">
-          <div className="bg-mc-gray border-4 border-mc-red p-5 max-w-sm w-full shadow-brutal-white max-h-[90vh] overflow-y-auto">
+          <div className="bg-mc-gray border-4 border-mc-red p-5 max-w-sm w-full shadow-brutal-white">
             <h3 className="font-display text-2xl text-white uppercase mb-6 border-b border-mc-red pb-2">EDITAR CADEIRA</h3>
             <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-mc-red font-mono text-[10px] font-black uppercase tracking-widest">Identificação / Nome</label>
-                <input className="w-full bg-black border-2 border-mc-red p-3 text-white font-mono uppercase" value={slots[editingSlotId].label} onChange={(e) => handleUpdateSlot(editingSlotId, 'label', e.target.value)} placeholder="NOME" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-mc-red font-mono text-[10px] font-black uppercase tracking-widest">Cargo / Função</label>
-                <input className="w-full bg-black border-2 border-mc-red p-3 text-white font-mono uppercase" value={slots[editingSlotId].sublabel} onChange={(e) => handleUpdateSlot(editingSlotId, 'sublabel', e.target.value)} placeholder="CARGO" />
-              </div>
-              <div className="flex gap-2 pt-4">
+              <input className="w-full bg-black border-2 border-mc-red p-3 text-white font-mono uppercase" value={slots[editingSlotId].label} onChange={(e) => handleUpdateSlot(editingSlotId, 'label', e.target.value)} placeholder="NOME" />
+              <input className="w-full bg-black border-2 border-mc-red p-3 text-white font-mono uppercase" value={slots[editingSlotId].sublabel} onChange={(e) => handleUpdateSlot(editingSlotId, 'sublabel', e.target.value)} placeholder="CARGO" />
+              <div className="flex gap-2">
                 <button 
                   onClick={() => handleUpdateSlot(editingSlotId, 'active', !slots[editingSlotId].active)}
                   className={`flex-1 py-3 font-mono font-black text-xs uppercase border-2 border-black ${slots[editingSlotId].active ? 'bg-mc-red text-white' : 'bg-mc-green text-black'}`}
                 >
                   {slots[editingSlotId].active ? 'DESATIVAR' : 'ATIVAR'}
                 </button>
-                <button onClick={() => setEditingSlotId(null)} className="flex-1 bg-white text-black font-display text-2xl py-2 border-2 border-black shadow-brutal-red">FECHAR</button>
+                <button onClick={() => setEditingSlotId(null)} className="flex-1 bg-white text-black font-display text-2xl py-2 border-2 border-black">FECHAR</button>
               </div>
             </div>
           </div>

@@ -40,14 +40,10 @@ const Layout: React.FC<LayoutProps> = ({
   }, []);
 
   const menuItems = [
-    { id: 'dashboard', label: 'PÁGINA INICIAL', icon: '01', smIcon: '🏠' },
-    { id: 'presidency', label: 'PRESIDÊNCIA', icon: '02', smIcon: '⚖️' },
-    { id: 'members', label: 'EFETIVO', icon: '03', smIcon: '🏍️' },
-    { id: 'announcements', label: 'INFORMES', icon: '04', smIcon: '📢' },
-    { id: 'payments', label: 'TESOURARIA', icon: '05', smIcon: '💰' },
-    { id: 'checklists', label: 'GERENCIAR ESCALAS', icon: '06', smIcon: '📋' },
-    { id: 'calendar', label: 'AGENDA', icon: '07', smIcon: '📅' },
-    { id: 'archive', label: 'ACERVO', icon: '08', smIcon: '📁' },
+    { id: 'dashboard', label: 'PÁGINA INICIAL', icon: '01' },
+    { id: 'members', label: 'EFETIVO', icon: '02' },
+    { id: 'presidency', label: 'PRESIDÊNCIA', icon: '03' },
+    { id: 'payments', label: 'TESOURARIA', icon: '04' },
   ];
 
   const handleProfileFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,8 +94,8 @@ const Layout: React.FC<LayoutProps> = ({
           onClick={e => e.stopPropagation()}
         >
           <div className="mb-12 pt-16 border-b-2 border-white pb-6 text-white">
-            <p className="text-mc-red text-[12px] font-black tracking-[0.4em] mb-2 font-mono uppercase">AUTH LEVEL</p>
-            <p className="text-white font-display text-5xl uppercase leading-none tracking-widest">{userRole}</p>
+            <p className="text-mc-red text-[12px] font-black tracking-[0.4em] mb-2 font-mono uppercase">COMANDO GERAL</p>
+            <p className="text-white font-display text-5xl uppercase leading-none tracking-widest">MENU TÁTICO</p>
           </div>
           
           <nav className="space-y-4 pb-20">
@@ -124,15 +120,6 @@ const Layout: React.FC<LayoutProps> = ({
               </button>
             ))}
           </nav>
-
-          <div className="sticky bottom-0 bg-mc-black pt-4 pb-6 border-t-2 border-white mt-8">
-            <button 
-              onClick={() => { onLogout(); setIsMenuOpen(false); }}
-              className="w-full py-5 border-4 border-mc-red bg-mc-black text-mc-red font-display text-3xl hover:bg-mc-red hover:text-white transition-all uppercase shadow-brutal-white active:shadow-none active:translate-x-1 active:translate-y-1"
-            >
-              LOGOUT SESSION
-            </button>
-          </div>
         </div>
       </div>
 

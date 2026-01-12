@@ -34,12 +34,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onCancel, targetArea }
           throw new Error("Chave inválida");
         }
       } else {
-        // Fallback Master Key
         if (key === 'CBMC2026') onSuccess();
         else throw new Error("Acesso negado");
       }
     } catch (err: any) {
-      // Fallback de emergência local para garantir que o clube não fique travado
       if (key === 'CBMC2026') {
         onSuccess();
       } else {
@@ -90,33 +88,27 @@ service cloud.firestore {
               <h2 className="text-black font-display text-4xl md:text-5xl uppercase tracking-tighter leading-none mb-4 font-bold">
                 ACESSO<br/>RESTRITO
               </h2>
+              <p className="text-black font-mono text-[9px] font-black uppercase tracking-[0.2em] opacity-40">CHAVE DE COMANDO EXIGIDA</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-3">
-                <label className="block text-black font-mono text-[9px] font-black uppercase tracking-[0.4em] text-center opacity-60">
-                  CHAVE DE COMANDO EXIGIDA
-                </label>
-                <input 
-                  type="password"
-                  autoFocus
-                  disabled={loading}
-                  value={key}
-                  onChange={(e) => setKey(e.target.value)}
-                  className="w-full bg-gray-100 border-4 border-black p-4 text-black font-mono text-center text-3xl focus:bg-white focus:border-mc-red outline-none transition-all placeholder:opacity-10 shadow-inner disabled:opacity-50"
-                  placeholder="••••"
-                />
-              </div>
+              <input 
+                type="password"
+                autoFocus
+                disabled={loading}
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                className="w-full bg-gray-100 border-4 border-black p-4 text-black font-mono text-center text-3xl focus:bg-white focus:border-mc-red outline-none transition-all placeholder:opacity-10 shadow-inner disabled:opacity-50"
+                placeholder="••••"
+              />
 
               {error && (
                 <div className="bg-mc-red text-white p-3 border-4 border-black text-center shadow-[4px_4px_0px_#000] animate-pulse">
-                  <p className="font-mono text-xs font-black uppercase tracking-widest">
-                    [ ACESSO NEGADO ]
-                  </p>
+                  <p className="font-mono text-xs font-black uppercase tracking-widest">[ ACESSO NEGADO ]</p>
                 </div>
               )}
 
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
                 <button 
                   type="submit"
                   disabled={loading}
@@ -127,9 +119,9 @@ service cloud.firestore {
                 <button 
                   type="button"
                   onClick={onCancel}
-                  className="w-full text-zinc-400 font-mono text-[9px] font-black py-2 uppercase hover:text-black transition-all tracking-[0.2em] border-t-2 border-black/5 mt-4"
+                  className="w-full bg-black text-white font-mono text-[11px] font-black py-4 uppercase hover:bg-mc-red transition-all tracking-[0.2em] border-2 border-black shadow-brutal-red"
                 >
-                  ← ABORTAR OPERAÇÃO
+                  ← RETORNAR PÁGINA ANTERIOR
                 </button>
               </div>
             </form>

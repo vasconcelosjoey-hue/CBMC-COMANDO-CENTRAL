@@ -13,6 +13,7 @@ export const ROLES_HIERARCHY: Role[] = [
   Role.PROSPERO
 ];
 
+// ORDEM INSTITUCIONAL: FUNDADORES -> NÚMEROS -> PRÓSPEROS
 export const MOCK_MEMBERS: Member[] = [
   {
     id: 'm1',

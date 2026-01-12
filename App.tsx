@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Role, Member } from './types.ts';
 import { MOCK_MEMBERS } from './constants.ts';
 import Layout from './components/Layout.tsx';
@@ -17,7 +17,7 @@ import { db } from './firebase.ts';
 import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const App: React.FC = () => {
-  const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
+  const [members, setMembers] = useState<Member[]>([]);
   const [heroImage, setHeroImage] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<Member>(MOCK_MEMBERS[2]);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -25,22 +25,55 @@ const App: React.FC = () => {
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // LISTENER REAL-TIME PARA MEMBROS (SINCRONIZA FOTOS DE PERFIL)
+  // FUNÇÃO DE ORDENAÇÃO INSTITUCIONAL OFICIAL
+  const sortMembers = useCallback((list: Member[]) => {
+    return [...list].sort((a, b) => {
+      const getPriority = (m: Member) => {
+        if (m.cumbraId.startsWith('F4-')) return 1; // Fundadores
+        if (!isNaN(parseInt(m.cumbraId))) return 2; // Efetivos Numéricos
+        return 3; // Prósperos
+      };
+
+      const pA = getPriority(a);
+      const pB = getPriority(b);
+
+      if (pA !== pB) return pA - pB;
+
+      // Ordem interna para Fundadores
+      if (pA === 1) {
+        return parseInt(a.cumbraId.split('-')[1]) - parseInt(b.cumbraId.split('-')[1]);
+      }
+
+      // Ordem interna para Efetivos (numérica)
+      if (pA === 2) {
+        return parseInt(a.cumbraId) - parseInt(b.cumbraId);
+      }
+
+      // Ordem específica para Prósperos: Moco depois Jakão
+      if (a.name === 'MOCO') return -1;
+      if (b.name === 'MOCO') return 1;
+      if (a.name === 'JAKÃO') return 1;
+      if (b.name === 'JAKÃO') return -1;
+      
+      return a.name.localeCompare(b.name);
+    });
+  }, []);
+
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "members_data", "current"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data().list || MOCK_MEMBERS;
-        setMembers(data);
+        setMembers(sortMembers(data));
       } else {
-        // Inicializa o banco se estiver vazio
-        setDoc(doc(db, "members_data", "current"), { list: MOCK_MEMBERS });
+        const sortedMock = sortMembers(MOCK_MEMBERS);
+        setMembers(sortedMock);
+        setDoc(doc(db, "members_data", "current"), { list: sortedMock });
       }
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [sortMembers]);
 
-  // LISTENER REAL-TIME PARA IMAGENS DO DASHBOARD (BRASÃO/HERO)
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "dashboard", "images"), (docSnap) => {
       if (docSnap.exists()) {
@@ -53,7 +86,6 @@ const App: React.FC = () => {
   const handleUpdateHero = async (url: string | null) => {
     try {
       await setDoc(doc(db, "dashboard", "images"), { hero: url }, { merge: true });
-      // O onSnapshot acima atualizará o estado local automaticamente para todos
     } catch (e) {
       console.error("Erro ao atualizar Brasão na nuvem:", e);
     }
@@ -61,9 +93,9 @@ const App: React.FC = () => {
 
   const handleUpdatePhoto = async (memberId: string, newPhotoUrl: string) => {
     const updatedMembers = members.map(m => m.id === memberId ? { ...m, photoUrl: newPhotoUrl } : m);
+    const sorted = sortMembers(updatedMembers);
     try {
-      await setDoc(doc(db, "members_data", "current"), { list: updatedMembers });
-      // Todos os aparelhos receberão a nova lista via onSnapshot
+      await setDoc(doc(db, "members_data", "current"), { list: sorted });
     } catch (e) {
       console.error("Erro ao sincronizar foto de perfil:", e);
     }

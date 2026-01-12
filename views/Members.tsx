@@ -15,11 +15,7 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const sortedMembers = [...members].sort((a, b) => {
-    // Ordenar por função e depois por nome
-    return a.name.localeCompare(b.name);
-  });
-
+  // A lista já vem ordenada institucionalmente do App.tsx
   const selectedMember = members.find(m => m.id === selectedMemberId);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,9 +43,9 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
       {!selectedMemberId ? (
         <>
           <BackButton onClick={onBack} />
-          <SectionTitle title="RELAÇÃO EFETIVO" subtitle="Identificação e Hierarquia" />
+          <SectionTitle title="RELAÇÃO EFETIVO" subtitle="Antiguidade e Postos" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {sortedMembers.map(member => (
+            {members.map(member => (
               <div 
                 key={member.id} 
                 className={`bg-mc-gray border-2 p-3 cursor-pointer hover:bg-mc-red hover:translate-x-1 hover:-translate-y-1 hover:shadow-brutal-white transition-all group ${
@@ -58,7 +54,7 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
                 onClick={() => setSelectedMemberId(member.id)}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 flex items-center justify-center bg-black text-white font-mono font-black text-[8px] border-2 border-mc-red overflow-hidden uppercase">
+                  <div className="w-12 h-12 flex items-center justify-center bg-black text-white font-mono font-black text-[8px] border-2 border-mc-red overflow-hidden uppercase">
                     {member.photoUrl ? (
                       <img src={member.photoUrl} className="w-full h-full object-cover" alt="" />
                     ) : (
@@ -66,7 +62,7 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
                     )}
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-display text-2xl md:text-3xl text-white group-hover:text-black leading-none uppercase tracking-tighter">
+                    <h4 className="font-display text-2xl md:text-4xl text-white group-hover:text-black leading-none uppercase tracking-tighter">
                       {getFullDisplayName(member)}
                     </h4>
                     <p className="text-[9px] text-mc-red font-mono font-black uppercase tracking-widest mt-0.5 group-hover:text-white">
