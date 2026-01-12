@@ -13,7 +13,7 @@ export const ROLES_HIERARCHY: Role[] = [
   Role.PROSPERO
 ];
 
-// ORDEM INSTITUCIONAL: FUNDADORES -> NÚMEROS -> PRÓSPEROS
+// ORDEM INSTITUCIONAL EXATA DA LISTA OFICIAL
 export const MOCK_MEMBERS: Member[] = [
   {
     id: 'm1',
@@ -136,7 +136,7 @@ export const MOCK_MEMBERS: Member[] = [
     photoUrl: 'https://picsum.photos/seed/paul/200/200'
   },
   {
-    id: 'm22',
+    id: 'm23',
     cumbraId: '23',
     name: 'JONAS',
     fullName: 'WELTON JONATHA C DA S SIQUEIRA',
@@ -173,7 +173,7 @@ export const MOCK_MEMBERS: Member[] = [
   },
   {
     id: 'm26',
-    cumbraId: 'PRÓSPERO',
+    cumbraId: '-',
     name: 'MOCO',
     fullName: 'JOÃO MARCOS GOMES DE LIMA',
     role: Role.PROSPERO,
@@ -185,7 +185,7 @@ export const MOCK_MEMBERS: Member[] = [
   },
   {
     id: 'm27',
-    cumbraId: 'PRÓSPERO',
+    cumbraId: '-',
     name: 'JAKÃO',
     fullName: 'MÁRCIO ROBERTO DA SILVA ARAÚJO',
     role: Role.PROSPERO,

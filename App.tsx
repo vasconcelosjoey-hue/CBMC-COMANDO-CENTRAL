@@ -25,7 +25,7 @@ const App: React.FC = () => {
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // FUNÇÃO DE ORDENAÇÃO INSTITUCIONAL OFICIAL
+  // FUNÇÃO DE ORDENAÇÃO INSTITUCIONAL OFICIAL (FUNDADORES > EFETIVOS > MOCO > JAKÃO)
   const sortMembers = useCallback((list: Member[]) => {
     return [...list].sort((a, b) => {
       const getPriority = (m: Member) => {
@@ -40,14 +40,14 @@ const App: React.FC = () => {
 
       if (pA !== pB) return pA - pB;
 
-      // Ordem interna para Fundadores (F4-01, F4-02...)
+      // Ordem interna para Fundadores (F4-01, F4-02, F4-03)
       if (pA === 1) {
         const numA = parseInt(a.cumbraId.split('-')[1]);
         const numB = parseInt(b.cumbraId.split('-')[1]);
         return numA - numB;
       }
 
-      // Ordem interna para Efetivos (numérica: 10, 11, 12...)
+      // Ordem interna para Efetivos (10, 11, 12, 15, 16, 17, 20, 22, 24, 25)
       if (pA === 2) {
         return parseInt(a.cumbraId) - parseInt(b.cumbraId);
       }
