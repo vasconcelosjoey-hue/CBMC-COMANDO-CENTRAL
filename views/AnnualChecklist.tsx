@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { SectionTitle, Card, Badge, BackButton } from '../components/UI.tsx';
 import { Member, Role } from '../types.ts';
@@ -180,7 +179,7 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
       {dbError && (
         <div className="bg-mc-yellow border-4 border-black p-4 text-center animate-pulse shadow-brutal-red mb-4">
           <span className="font-mono text-[11px] font-black uppercase tracking-widest block mb-2">⚠️ ERRO DE PERMISSÃO FIREBASE</span>
-          <span className="font-mono text-[9px] uppercase block leading-tight">Vá no Console do Firebase > Firestore > Rules e libere o acesso (allow read, write: if true).</span>
+          <span className="font-mono text-[9px] uppercase block leading-tight">Vá no Console do Firebase &gt; Firestore &gt; Rules e libere o acesso (allow read, write: if true).</span>
         </div>
       )}
 
