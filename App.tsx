@@ -1,18 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { Role, Member } from './types';
-import { MOCK_MEMBERS } from './constants';
-import Layout from './components/Layout';
-import Dashboard from './views/Dashboard';
-import Announcements from './views/Announcements';
-import Members from './views/Members';
-import Payments from './views/Payments';
-import Calendar from './views/Calendar';
-import Archive from './views/Archive';
-import Checklists from './views/Checklists';
-import Presidency from './views/Presidency';
-import AnnualChecklist from './views/AnnualChecklist';
-import LoginView from './views/LoginView';
+import { Role, Member } from './types.ts';
+import { MOCK_MEMBERS } from './constants.ts';
+import Layout from './components/Layout.tsx';
+import Dashboard from './views/Dashboard.tsx';
+import Announcements from './views/Announcements.tsx';
+import Members from './views/Members.tsx';
+import Payments from './views/Payments.tsx';
+import Calendar from './views/Calendar.tsx';
+import Archive from './views/Archive.tsx';
+import Checklists from './views/Checklists.tsx';
+import Presidency from './views/Presidency.tsx';
+import AnnualChecklist from './views/AnnualChecklist.tsx';
+import LoginView from './views/LoginView.tsx';
 
 const STORAGE_KEYS = {
   MEMBERS: 'cbmc_members_data_v1',
@@ -21,27 +21,33 @@ const STORAGE_KEYS = {
 };
 
 const App: React.FC = () => {
-  // Inicialização com persistência
   const [members, setMembers] = useState<Member[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-    return saved ? JSON.parse(saved) : MOCK_MEMBERS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.MEMBERS);
+      return saved ? JSON.parse(saved) : MOCK_MEMBERS;
+    } catch {
+      return MOCK_MEMBERS;
+    }
   });
 
   const [heroImage, setHeroImage] = useState<string | null>(() => {
     return localStorage.getItem(STORAGE_KEYS.HERO);
   });
 
-  const [currentUser, setCurrentUser] = useState<Member>(members[2]); // Default: Perverso (Presidente) para fins de demo
+  const [currentUser, setCurrentUser] = useState<Member>(members[2]);
   const [activeTab, setActiveTab] = useState('dashboard');
   
   const [authenticatedAreas, setAuthenticatedAreas] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.AUTH);
-    return saved ? new Set(JSON.parse(saved)) : new Set();
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.AUTH);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
   });
   
   const [pendingTab, setPendingTab] = useState<string | null>(null);
 
-  // Sincronizar dados quando mudarem
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(members));
   }, [members]);
@@ -57,14 +63,7 @@ const App: React.FC = () => {
   };
 
   const handleUpdatePhoto = (memberId: string, newPhotoUrl: string) => {
-    setMembers(prev => {
-      const updated = prev.map(m => m.id === memberId ? { ...m, photoUrl: newPhotoUrl } : m);
-      return updated;
-    });
-    
-    if (currentUser.id === memberId) {
-      setCurrentUser(prev => ({ ...prev, photoUrl: newPhotoUrl }));
-    }
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, photoUrl: newPhotoUrl } : m));
   };
 
   const handleTabChange = (tab: string) => {
@@ -78,10 +77,7 @@ const App: React.FC = () => {
   };
 
   const onLoginSuccess = (area: string) => {
-    setAuthenticatedAreas(prev => {
-      const next = new Set(prev).add(area);
-      return next;
-    });
+    setAuthenticatedAreas(prev => new Set(prev).add(area));
     setActiveTab(area);
     setPendingTab(null);
   };
@@ -92,40 +88,17 @@ const App: React.FC = () => {
     localStorage.removeItem(STORAGE_KEYS.AUTH);
   };
 
-  const backToDashboard = () => handleTabChange('dashboard');
-  const backToPresidency = () => handleTabChange('presidency');
-
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return (
-        <Dashboard 
-          heroImage={heroImage} 
-          onUpdateHero={handleUpdateHero} 
-          userRole={currentUser.role} 
-        />
-      );
-      case 'presidency': return (
-        <Presidency 
-          userRole={currentUser.role} 
-          onBack={backToDashboard} 
-          onNavigateToAnnualChecklist={() => handleTabChange('annual-checklist')}
-        />
-      );
-      case 'annual-checklist': return <AnnualChecklist members={members} userRole={currentUser.role} onBack={backToPresidency} />;
-      case 'announcements': return <Announcements userRole={currentUser.role} onBack={backToDashboard} />;
-      case 'members': return (
-        <Members 
-          userRole={currentUser.role} 
-          currentUserId={currentUser.id}
-          members={members}
-          onUpdatePhoto={handleUpdatePhoto}
-          onBack={backToDashboard}
-        />
-      );
-      case 'payments': return <Payments userRole={currentUser.role} members={members} onBack={backToDashboard} />;
-      case 'checklists': return <Checklists onBack={backToDashboard} />;
-      case 'calendar': return <Calendar onBack={backToDashboard} />;
-      case 'archive': return <Archive onBack={backToDashboard} />;
+      case 'dashboard': return <Dashboard heroImage={heroImage} onUpdateHero={handleUpdateHero} userRole={currentUser.role} />;
+      case 'presidency': return <Presidency userRole={currentUser.role} onBack={() => setActiveTab('dashboard')} onNavigateToAnnualChecklist={() => handleTabChange('annual-checklist')} />;
+      case 'annual-checklist': return <AnnualChecklist members={members} userRole={currentUser.role} onBack={() => setActiveTab('presidency')} />;
+      case 'announcements': return <Announcements userRole={currentUser.role} onBack={() => setActiveTab('dashboard')} />;
+      case 'members': return <Members userRole={currentUser.role} currentUserId={currentUser.id} members={members} onUpdatePhoto={handleUpdatePhoto} onBack={() => setActiveTab('dashboard')} />;
+      case 'payments': return <Payments userRole={currentUser.role} members={members} onBack={() => setActiveTab('dashboard')} />;
+      case 'checklists': return <Checklists onBack={() => setActiveTab('dashboard')} />;
+      case 'calendar': return <Calendar onBack={() => setActiveTab('dashboard')} />;
+      case 'archive': return <Archive onBack={() => setActiveTab('dashboard')} />;
       default: return <Dashboard heroImage={heroImage} onUpdateHero={handleUpdateHero} userRole={currentUser.role} />;
     }
   };

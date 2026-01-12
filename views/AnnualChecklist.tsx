@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { SectionTitle, Card, Badge, BackButton } from '../components/UI';
-import { Member, Role } from '../types';
-import { db } from '../firebase';
+import { SectionTitle, Card, Badge, BackButton } from '../components/UI.tsx';
+import { Member, Role } from '../types.ts';
+import { db } from '../firebase.ts';
 import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 interface AnnualChecklistProps {
@@ -16,6 +16,7 @@ type AttendanceState = Record<string, Record<string, boolean>>;
 const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, onBack }) => {
   const [attendance, setAttendance] = useState<AttendanceState>({});
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
 
   const eventNames = [
     'REUNIÃO DE ATA',
@@ -49,14 +50,22 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
     Role.TESOUREIRO
   ].includes(userRole);
 
-  // Escuta o Firebase em tempo real
+  // Escuta o Firebase em tempo real com tratamento de erro robusto
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "attendance", "annual_2026"), (doc) => {
-      if (doc.exists()) {
-        setAttendance(doc.data() as AttendanceState);
+    const unsub = onSnapshot(doc(db, "attendance", "annual_2026"), 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setAttendance(docSnap.data() as AttendanceState);
+        }
+        setLoading(false);
+        setDbError(false);
+      },
+      (error) => {
+        console.error("Firebase Attendance Error:", error);
+        setDbError(true);
+        setLoading(false); // Libera a tela para usar estado local/vazio
       }
-      setLoading(false);
-    });
+    );
     return () => unsub();
   }, []);
 
@@ -76,7 +85,7 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
       await setDoc(doc(db, "attendance", "annual_2026"), newAttendance);
     } catch (e) {
       console.error("Erro ao salvar no Firebase:", e);
-      alert("Erro ao sincronizar. Verifique sua conexão.");
+      alert("ERRO DE PERMISSÃO: Não foi possível salvar. Verifique as regras do Firestore.");
     }
   };
 
@@ -168,11 +177,19 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20">
+      {dbError && (
+        <div className="bg-mc-yellow border-4 border-black p-2 text-center animate-pulse">
+          <span className="font-mono text-[10px] font-black uppercase tracking-widest">⚠️ ERRO DE PERMISSÃO FIREBASE - VERIFIQUE AS REGRAS DO CLOUD FIRESTORE</span>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <BackButton onClick={onBack} />
-        <div className="bg-mc-black border-2 border-mc-green px-3 py-1 flex items-center gap-2">
-          <div className="w-2 h-2 bg-mc-green rounded-full animate-pulse"></div>
-          <span className="text-mc-green font-mono text-[9px] font-black uppercase tracking-widest">NUVEM ATIVA</span>
+        <div className={`border-2 px-3 py-1 flex items-center gap-2 ${dbError ? 'bg-mc-red border-white' : 'bg-mc-black border-mc-green'}`}>
+          <div className={`w-2 h-2 rounded-full animate-pulse ${dbError ? 'bg-white' : 'bg-mc-green'}`}></div>
+          <span className={`font-mono text-[9px] font-black uppercase tracking-widest ${dbError ? 'text-white' : 'text-mc-green'}`}>
+            {dbError ? 'ERRO DE SINCRONIZAÇÃO' : 'NUVEM ATIVA'}
+          </span>
         </div>
       </div>
       
