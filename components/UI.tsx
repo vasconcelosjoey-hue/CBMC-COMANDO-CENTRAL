@@ -46,8 +46,8 @@ export const Badge: React.FC<{ color: 'red' | 'green' | 'blue' | 'yellow' | 'gra
 export const BackButton: React.FC<{ onClick: () => void; label?: string }> = ({ onClick, label = "VOLTAR AO QG" }) => (
   <button 
     onClick={onClick}
-    className="inline-flex items-center gap-2 bg-mc-black text-mc-red border-2 border-mc-red px-3 py-1.5 md:px-5 md:py-2.5 font-mono font-black text-[9px] md:text-[11px] uppercase shadow-brutal-small hover:bg-mc-red hover:text-white transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none mb-4 md:mb-8"
+    className="inline-flex items-center gap-3 bg-mc-black text-mc-red border-2 border-mc-red px-4 py-2 md:px-6 md:py-3 font-mono font-black text-[10px] md:text-[13px] uppercase shadow-[4px_4px_0px_#ff0000] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all active:bg-mc-red active:text-white mb-6 md:mb-10"
   >
-    <span className="text-base md:text-xl leading-none">←</span> {label}
+    <span className="text-lg md:text-2xl leading-none">←</span> {label}
   </button>
 );

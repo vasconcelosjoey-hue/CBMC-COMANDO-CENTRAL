@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
-import { SectionTitle } from '../components/UI.tsx';
+import { SectionTitle, BackButton } from '../components/UI.tsx';
 import { MOCK_EVENTS } from '../constants.ts';
 import { Role, ClubEvent } from '../types.ts';
 import { db } from '../firebase.ts';
@@ -18,6 +18,7 @@ interface DashboardProps {
   heroImage: string | null;
   onUpdateHero: (url: string | null) => void;
   userRole: Role;
+  onBack: () => void;
 }
 
 const DEFAULT_SLOTS: Record<string, DispositivoSlot> = {
@@ -67,9 +68,8 @@ const SlotBox: React.FC<{
   </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole }) => {
+const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole, onBack }) => {
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
-  const [currentMonthIndex, setCurrentMonthIndex] = useState(new Date().getMonth()); 
   
   const [centerTableImage, setCenterTableImage] = useState<string | null>(null);
   const [slots, setSlots] = useState<Record<string, DispositivoSlot>>(DEFAULT_SLOTS);
@@ -79,7 +79,6 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
 
   useEffect(() => {
-    // Escutar Slots
     const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), 
       (docSnap) => {
         if (docSnap.exists()) {
@@ -89,7 +88,6 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
         setLoading(false);
       },
       (error) => {
-        // Silencia erro de permissão e ativa fallback
         setDbStatus('offline');
         setLoading(false);
       }
@@ -103,7 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
           if (data.hero) onUpdateHero(data.hero);
         }
       },
-      (error) => {} // Erro silencioso
+      (error) => {} 
     );
 
     return () => { unsubSlots(); unsubImages(); };
@@ -115,7 +113,6 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
     try {
       await setDoc(doc(db, "dashboard", "slots"), newSlots);
     } catch (e) {
-      // Se falhar no banco, avisa discretamente mas mantém no estado local
       console.warn("Alteração salva apenas localmente (Erro Firebase).");
     }
   };
@@ -129,6 +126,8 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
 
   return (
     <div className="space-y-10 md:space-y-16 pb-20">
+      <BackButton onClick={onBack} label="SAIR DA SESSÃO" />
+
       {/* STATUS INDICATOR */}
       <div className="fixed bottom-4 right-4 z-[100]">
         <div className={`flex items-center gap-2 px-3 py-1.5 border-2 border-black font-mono text-[9px] font-black uppercase tracking-widest shadow-brutal-small ${dbStatus === 'online' ? 'bg-mc-green' : 'bg-mc-yellow'}`}>
