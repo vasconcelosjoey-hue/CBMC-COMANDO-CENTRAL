@@ -35,6 +35,7 @@ export interface Member {
   paymentStatus: PaymentStatus;
   adminNotes?: string;
   photoUrl?: string;
+  rosterActive?: boolean; // Novo: Controla se o membro entra no rodízio da escala
 }
 
 export interface Announcement {

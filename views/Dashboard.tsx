@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { SectionTitle } from '../components/UI.tsx';
-import { Role, Member } from '../types.ts';
+import { Role, Member, MemberStatus, PaymentStatus } from '../types.ts';
 import { db } from '../firebase.ts';
 import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import * as htmlToImage from 'html-to-image';
@@ -90,6 +90,9 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [draggedSlotId, setDraggedSlotId] = useState<string | null>(null);
   const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberId, setNewMemberId] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dispositivoRef = useRef<HTMLDivElement>(null);
@@ -99,18 +102,24 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const monthsList = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
   const weekdays = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
 
+  // FILTRA MEMBROS ATIVOS NO RODÍZIO
+  const activeRotationMembers = useMemo(() => {
+    return members.filter(m => m.rosterActive !== false);
+  }, [members]);
+
   // LÓGICA DE ESCALA INTELIGENTE (RODÍZIO RESPONSIVO)
   const getMemberForDate = useCallback((day: number, month: number, year: number) => {
-    if (!members.length) return "CARREGANDO...";
+    if (!activeRotationMembers.length) return "SEM EFETIVO NO RODÍZIO";
     const epoch = new Date(2026, 0, 1);
     const target = new Date(year, month, day);
     const diffTime = target.getTime() - epoch.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const index = ((diffDays % members.length) + members.length) % members.length;
-    const m = members[index];
+    
+    const index = ((diffDays % activeRotationMembers.length) + activeRotationMembers.length) % activeRotationMembers.length;
+    const m = activeRotationMembers[index];
     if (m.role === Role.PROSPERO) return `PRÓSPERO ${m.name}`;
     return `${m.cumbraId} ${m.name}`;
-  }, [members]);
+  }, [activeRotationMembers]);
 
   const currentScaleData = useMemo(() => {
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -123,7 +132,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         member: getMemberForDate(day, viewMonth, viewYear)
       };
     });
-  }, [viewMonth, viewYear, members, getMemberForDate]);
+  }, [viewMonth, viewYear, getMemberForDate]);
 
   const todayDuty = useMemo(() => {
     const now = new Date();
@@ -139,7 +148,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     return () => unsubSlots();
   }, []);
 
-  // DRAG & DROP DO RODÍZIO (MUDAR A INTELIGÊNCIA DA ESCALA)
+  // DRAG & DROP DO RODÍZIO
   const handleMemberDragStart = (index: number) => setDraggedMemberIndex(index);
   const handleMemberDrop = (targetIndex: number) => {
     if (draggedMemberIndex === null || draggedMemberIndex === targetIndex) return;
@@ -148,6 +157,31 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     newList.splice(targetIndex, 0, moved);
     onUpdateRoster(newList);
     setDraggedMemberIndex(null);
+  };
+
+  const toggleMemberRosterStatus = (memberId: string) => {
+    const newList = members.map(m => m.id === memberId ? { ...m, rosterActive: m.rosterActive === false ? true : false } : m);
+    onUpdateRoster(newList);
+  };
+
+  const addNewMemberToRoster = () => {
+    if (!newMemberName.trim()) return;
+    const newMember: Member = {
+      id: `custom_${Date.now()}`,
+      name: newMemberName.toUpperCase(),
+      cumbraId: newMemberId.trim() || '-',
+      fullName: newMemberName.toUpperCase(),
+      role: newMemberId.startsWith('F4') ? Role.SARGENTO_ARMAS : (newMemberId === '-' ? Role.PROSPERO : Role.MEMBRO),
+      roleHistory: [],
+      joinDate: new Date().toLocaleDateString(),
+      status: newMemberId === '-' ? MemberStatus.PROSPERO : MemberStatus.ATIVO,
+      paymentStatus: PaymentStatus.PAGO,
+      rosterActive: true
+    };
+    onUpdateRoster([...members, newMember]);
+    setNewMemberName('');
+    setNewMemberId('');
+    setShowAddMember(false);
   };
 
   const handleUpdateSlot = async (id: string, field: keyof DispositivoSlot, value: any) => {
@@ -260,8 +294,19 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
 
       {/* RODÍZIO TÁTICO (DRAGGABLE ROSTER) */}
       <div className="space-y-6">
-        <SectionTitle title="ORDEM DE RODÍZIO" subtitle="Arraste para mudar a Fila Tática" />
-        <div className="max-w-5xl mx-auto bg-mc-gray border-4 border-white p-4 overflow-x-auto shadow-brutal-red">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+           <SectionTitle title="ORDEM DE RODÍZIO" subtitle="Arraste para mudar a Fila Tática" />
+           {isAdmin && (
+             <button 
+               onClick={() => setShowAddMember(true)}
+               className="bg-mc-green border-2 border-black p-3 font-mono text-[10px] font-black uppercase shadow-brutal-green mb-4 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+             >
+               + ADICIONAR AO RODÍZIO
+             </button>
+           )}
+        </div>
+        
+        <div className="max-w-5xl mx-auto bg-mc-black border-4 border-white p-4 overflow-x-auto shadow-brutal-red custom-scrollbar">
            <div className="flex gap-2 min-w-max pb-2">
               {members.map((m, idx) => (
                  <div 
@@ -270,17 +315,49 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                    onDragStart={() => handleMemberDragStart(idx)}
                    onDragOver={(e) => e.preventDefault()}
                    onDrop={() => handleMemberDrop(idx)}
-                   className={`px-4 py-2 border-2 font-mono font-black text-xs uppercase cursor-move transition-all flex items-center gap-2 whitespace-nowrap ${
+                   className={`group px-3 py-2 border-2 font-mono font-black text-[10px] md:text-xs uppercase cursor-move transition-all flex items-center gap-3 whitespace-nowrap relative ${
+                     m.rosterActive === false ? 'opacity-30 bg-zinc-800 text-white border-zinc-700' : 
                      m.role === Role.PROSPERO ? 'bg-mc-yellow text-black border-black' : 'bg-white text-black border-mc-red'
-                   } hover:scale-105 active:scale-95`}
+                   } hover:scale-105`}
                  >
                     <span className="opacity-40">⠿</span>
                     {m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`}
+                    {isAdmin && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); toggleMemberRosterStatus(m.id); }}
+                        className={`w-6 h-6 flex items-center justify-center border-2 border-black shadow-[1px_1px_0px_#000] text-[10px] ${m.rosterActive === false ? 'bg-mc-green' : 'bg-mc-red text-white'}`}
+                      >
+                        {m.rosterActive === false ? 'ON' : 'OFF'}
+                      </button>
+                    )}
                  </div>
               ))}
            </div>
         </div>
       </div>
+
+      {/* MODAL ADICIONAR MEMBRO */}
+      {showAddMember && (
+        <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-mc-red p-6 max-w-sm w-full shadow-brutal-white">
+            <h3 className="font-display text-3xl text-black uppercase mb-6 border-b-2 border-black pb-2">NOVO RECRUTA</h3>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase opacity-40">APELIDO / NOME</label>
+                <input className="w-full bg-zinc-100 border-2 border-black p-3 text-black font-mono uppercase outline-none focus:bg-white" value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} placeholder="EX: TROVÃO" />
+              </div>
+              <div className="space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase opacity-40">NÚMERO / ID (F4-XX OU XX OU -)</label>
+                <input className="w-full bg-zinc-100 border-2 border-black p-3 text-black font-mono uppercase outline-none focus:bg-white" value={newMemberId} onChange={(e) => setNewMemberId(e.target.value)} placeholder="EX: 26" />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button onClick={addNewMemberToRoster} className="flex-1 bg-mc-red text-white font-display text-2xl py-2 border-2 border-black shadow-brutal-small active:shadow-none active:translate-x-1 active:translate-y-1">ADICIONAR</button>
+                <button onClick={() => setShowAddMember(false)} className="flex-1 bg-black text-white font-mono text-xs py-2 border-2 border-white">CANCELAR</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DISPOSITIVO DE REUNIÃO */}
       <div className="space-y-6">
@@ -299,7 +376,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                 {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />)}
               </div>
               <div className="bg-mc-gray border-4 border-mc-red flex flex-col items-center justify-center min-h-[150px] md:min-h-[350px] relative overflow-hidden">
-                <div className="z-20 p-2 transform -rotate-90 flex flex-col items-center justify-center">
+                <div className="z-20 p-2 transform -rotate-90 flex flex-col items-center justify-center text-center">
                   <span className="text-mc-red font-display text-4xl md:text-[5vw] block leading-none font-black tracking-tighter drop-shadow-[3px_3px_0px_rgba(255,255,255,1)]">CBMC</span>
                   <div className="h-1 bg-mc-red w-32 md:w-56 my-2"></div>
                   <span className="text-white font-mono text-[8px] md:text-[10px] uppercase font-black tracking-[0.4em] opacity-80 whitespace-nowrap">MESA DE COMANDO</span>
