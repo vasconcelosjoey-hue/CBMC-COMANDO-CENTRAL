@@ -91,6 +91,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const [draggedSlotId, setDraggedSlotId] = useState<string | null>(null);
   const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberId, setNewMemberId] = useState('');
   
@@ -108,17 +109,13 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   }, [members]);
 
   // LÓGICA DE ESCALA INTELIGENTE (RODÍZIO RESPONSIVO)
-  const getMemberForDate = useCallback((day: number, month: number, year: number) => {
-    if (!activeRotationMembers.length) return "SEM EFETIVO NO RODÍZIO";
+  const getMemberIndexForDate = useCallback((day: number, month: number, year: number) => {
+    if (!activeRotationMembers.length) return -1;
     const epoch = new Date(2026, 0, 1);
     const target = new Date(year, month, day);
     const diffTime = target.getTime() - epoch.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    const index = ((diffDays % activeRotationMembers.length) + activeRotationMembers.length) % activeRotationMembers.length;
-    const m = activeRotationMembers[index];
-    if (m.role === Role.PROSPERO) return `PRÓSPERO ${m.name}`;
-    return `${m.cumbraId} ${m.name}`;
+    return ((diffDays % activeRotationMembers.length) + activeRotationMembers.length) % activeRotationMembers.length;
   }, [activeRotationMembers]);
 
   const currentScaleData = useMemo(() => {
@@ -126,18 +123,27 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     return Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
       const dateObj = new Date(viewYear, viewMonth, day);
+      const mIdx = getMemberIndexForDate(day, viewMonth, viewYear);
+      const m = mIdx !== -1 ? activeRotationMembers[mIdx] : null;
+      
       return {
+        day,
         date: `${day.toString().padStart(2, '0')}/${(viewMonth + 1).toString().padStart(2, '0')}/${viewYear}`,
         weekday: weekdays[dateObj.getDay()],
-        member: getMemberForDate(day, viewMonth, viewYear)
+        member: m ? (m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`) : "SEM EFETIVO",
+        memberId: m ? m.id : null,
+        // Precisamos saber o index global na lista 'members' para o swap
+        globalIndex: m ? members.findIndex(orig => orig.id === m.id) : -1
       };
     });
-  }, [viewMonth, viewYear, getMemberForDate]);
+  }, [viewMonth, viewYear, getMemberIndexForDate, activeRotationMembers, members]);
 
   const todayDuty = useMemo(() => {
     const now = new Date();
-    return getMemberForDate(now.getDate(), now.getMonth(), now.getFullYear());
-  }, [getMemberForDate]);
+    const mIdx = getMemberIndexForDate(now.getDate(), now.getMonth(), now.getFullYear());
+    const m = mIdx !== -1 ? activeRotationMembers[mIdx] : null;
+    return m ? (m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`) : "SEM EFETIVO";
+  }, [getMemberIndexForDate, activeRotationMembers]);
 
   useEffect(() => {
     const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), (docSnap) => {
@@ -148,13 +154,17 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     return () => unsubSlots();
   }, []);
 
-  // DRAG & DROP DO RODÍZIO
-  const handleMemberDragStart = (index: number) => setDraggedMemberIndex(index);
-  const handleMemberDrop = (targetIndex: number) => {
-    if (draggedMemberIndex === null || draggedMemberIndex === targetIndex) return;
+  // DRAG & DROP INTEGRADO NA TABELA
+  const handleTableDragStart = (globalIndex: number) => {
+    if (globalIndex === -1) return;
+    setDraggedMemberIndex(globalIndex);
+  };
+
+  const handleTableDrop = (targetGlobalIndex: number) => {
+    if (draggedMemberIndex === null || targetGlobalIndex === -1 || draggedMemberIndex === targetGlobalIndex) return;
     const newList = [...members];
     const [moved] = newList.splice(draggedMemberIndex, 1);
-    newList.splice(targetIndex, 0, moved);
+    newList.splice(targetGlobalIndex, 0, moved);
     onUpdateRoster(newList);
     setDraggedMemberIndex(null);
   };
@@ -182,6 +192,19 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     setNewMemberName('');
     setNewMemberId('');
     setShowAddMember(false);
+  };
+
+  const updateMemberName = () => {
+    if (!editingMember || !newMemberName.trim()) return;
+    const newList = members.map(m => m.id === editingMember.id ? { 
+      ...m, 
+      name: newMemberName.toUpperCase(),
+      cumbraId: newMemberId.trim() || m.cumbraId
+    } : m);
+    onUpdateRoster(newList);
+    setEditingMember(null);
+    setNewMemberName('');
+    setNewMemberId('');
   };
 
   const handleUpdateSlot = async (id: string, field: keyof DispositivoSlot, value: any) => {
@@ -292,73 +315,6 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         </div>
       </div>
 
-      {/* RODÍZIO TÁTICO (DRAGGABLE ROSTER) */}
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-           <SectionTitle title="ORDEM DE RODÍZIO" subtitle="Arraste para mudar a Fila Tática" />
-           {isAdmin && (
-             <button 
-               onClick={() => setShowAddMember(true)}
-               className="bg-mc-green border-2 border-black p-3 font-mono text-[10px] font-black uppercase shadow-brutal-green mb-4 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
-             >
-               + ADICIONAR AO RODÍZIO
-             </button>
-           )}
-        </div>
-        
-        <div className="max-w-5xl mx-auto bg-mc-black border-4 border-white p-4 overflow-x-auto shadow-brutal-red custom-scrollbar">
-           <div className="flex gap-2 min-w-max pb-2">
-              {members.map((m, idx) => (
-                 <div 
-                   key={m.id}
-                   draggable={isAdmin}
-                   onDragStart={() => handleMemberDragStart(idx)}
-                   onDragOver={(e) => e.preventDefault()}
-                   onDrop={() => handleMemberDrop(idx)}
-                   className={`group px-3 py-2 border-2 font-mono font-black text-[10px] md:text-xs uppercase cursor-move transition-all flex items-center gap-3 whitespace-nowrap relative ${
-                     m.rosterActive === false ? 'opacity-30 bg-zinc-800 text-white border-zinc-700' : 
-                     m.role === Role.PROSPERO ? 'bg-mc-yellow text-black border-black' : 'bg-white text-black border-mc-red'
-                   } hover:scale-105`}
-                 >
-                    <span className="opacity-40">⠿</span>
-                    {m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`}
-                    {isAdmin && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); toggleMemberRosterStatus(m.id); }}
-                        className={`w-6 h-6 flex items-center justify-center border-2 border-black shadow-[1px_1px_0px_#000] text-[10px] ${m.rosterActive === false ? 'bg-mc-green' : 'bg-mc-red text-white'}`}
-                      >
-                        {m.rosterActive === false ? 'ON' : 'OFF'}
-                      </button>
-                    )}
-                 </div>
-              ))}
-           </div>
-        </div>
-      </div>
-
-      {/* MODAL ADICIONAR MEMBRO */}
-      {showAddMember && (
-        <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4">
-          <div className="bg-white border-4 border-mc-red p-6 max-w-sm w-full shadow-brutal-white">
-            <h3 className="font-display text-3xl text-black uppercase mb-6 border-b-2 border-black pb-2">NOVO RECRUTA</h3>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="font-mono text-[9px] font-black uppercase opacity-40">APELIDO / NOME</label>
-                <input className="w-full bg-zinc-100 border-2 border-black p-3 text-black font-mono uppercase outline-none focus:bg-white" value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} placeholder="EX: TROVÃO" />
-              </div>
-              <div className="space-y-1">
-                <label className="font-mono text-[9px] font-black uppercase opacity-40">NÚMERO / ID (F4-XX OU XX OU -)</label>
-                <input className="w-full bg-zinc-100 border-2 border-black p-3 text-black font-mono uppercase outline-none focus:bg-white" value={newMemberId} onChange={(e) => setNewMemberId(e.target.value)} placeholder="EX: 26" />
-              </div>
-              <div className="flex gap-2 pt-4">
-                <button onClick={addNewMemberToRoster} className="flex-1 bg-mc-red text-white font-display text-2xl py-2 border-2 border-black shadow-brutal-small active:shadow-none active:translate-x-1 active:translate-y-1">ADICIONAR</button>
-                <button onClick={() => setShowAddMember(false)} className="flex-1 bg-black text-white font-mono text-xs py-2 border-2 border-white">CANCELAR</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* DISPOSITIVO DE REUNIÃO */}
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -394,22 +350,32 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         </div>
       </div>
 
-      {/* ESCALA COMPLETA */}
+      {/* ESCALA COMPLETA (AGORA COM COMANDOS INTEGRADOS) */}
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex flex-col items-center md:items-start">
-             <div className="bg-mc-red border-4 border-black px-8 py-3 mb-2 shadow-brutal-red">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+          <div className="flex flex-col items-center md:items-start w-full md:w-auto">
+             <div className="bg-mc-red border-4 border-black px-8 py-3 mb-2 shadow-brutal-red w-full text-center md:text-left">
                 <h2 className="text-4xl font-display text-black uppercase tracking-widest leading-none">ESCALA COMPLETA</h2>
              </div>
-             <div className="bg-white border-2 border-black px-4 py-1 flex items-center gap-4">
-                <button onClick={() => navigateMonth(-1)} className="text-mc-red hover:scale-125 transition-transform font-black text-xl">◀</button>
-                <span className="text-black font-mono font-black text-xs uppercase tracking-[0.3em] min-w-[150px] text-center">
-                    {monthsList[viewMonth]} / {viewYear}
-                </span>
-                <button onClick={() => navigateMonth(1)} className="text-mc-red hover:scale-125 transition-transform font-black text-xl">▶</button>
+             <div className="flex flex-wrap items-center gap-2">
+                <div className="bg-white border-2 border-black px-4 py-1 flex items-center gap-4">
+                    <button onClick={() => navigateMonth(-1)} className="text-mc-red hover:scale-125 transition-transform font-black text-xl">◀</button>
+                    <span className="text-black font-mono font-black text-xs uppercase tracking-[0.3em] min-w-[150px] text-center">
+                        {monthsList[viewMonth]} / {viewYear}
+                    </span>
+                    <button onClick={() => navigateMonth(1)} className="text-mc-red hover:scale-125 transition-transform font-black text-xl">▶</button>
+                </div>
+                {isAdmin && (
+                    <button 
+                        onClick={() => setShowAddMember(true)}
+                        className="bg-mc-green border-2 border-black px-4 py-1.5 font-mono text-[10px] font-black uppercase shadow-brutal-green hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all"
+                    >
+                        + ADICIONAR AO RODÍZIO
+                    </button>
+                )}
              </div>
           </div>
-          <button onClick={() => exportAsImage(checklistRef, 'escala-mensal')} className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small">📸 EXPORTAR ESCALA</button>
+          <button onClick={() => exportAsImage(checklistRef, 'escala-mensal')} className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small mb-1">📸 EXPORTAR JPG</button>
         </div>
 
         <div ref={checklistRef} className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document overflow-hidden">
@@ -423,15 +389,57 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                       <tr className="bg-black text-white font-mono text-[10px] uppercase">
                          <th className="p-3 border-r border-white/10 w-24 text-center">DATA</th>
                          <th className="p-3 border-r border-white/10 w-32">DIA</th>
-                         <th className="p-3">CUMPADRE RESPONSÁVEL</th>
+                         <th className="p-3">CUMPADRE RESPONSÁVEL (ARRASTE PARA REORDENAR)</th>
+                         {isAdmin && <th className="p-3 text-right">AÇÕES</th>}
                       </tr>
                    </thead>
                    <tbody>
                       {currentScaleData.map((row: any, idx: number) => (
-                         <tr key={idx} className={`border-b border-black/5 ${row.date.split('/')[0] === new Date().getDate().toString().padStart(2, '0') && viewMonth === new Date().getMonth() ? 'bg-mc-yellow/40' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                         <tr 
+                            key={`${viewYear}-${viewMonth}-${row.day}`}
+                            draggable={isAdmin}
+                            onDragStart={() => handleTableDragStart(row.globalIndex)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => handleTableDrop(row.globalIndex)}
+                            className={`border-b border-black/5 group cursor-move transition-colors ${
+                                row.date.split('/')[0] === new Date().getDate().toString().padStart(2, '0') && viewMonth === new Date().getMonth() 
+                                ? 'bg-mc-yellow/40' 
+                                : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                            }`}
+                         >
                             <td className="p-3 text-center font-mono text-[12px] md:text-sm text-black border-r border-black/5 font-bold">{row.date}</td>
                             <td className="p-3 font-mono text-[10px] text-black border-r border-black/5 font-black uppercase opacity-60">{row.weekday}</td>
-                            <td className="p-3 font-mono font-black text-[14px] md:text-lg uppercase">{row.member}</td>
+                            <td className="p-3 font-mono font-black text-[14px] md:text-lg uppercase flex items-center gap-3">
+                               <span className="opacity-20 group-hover:opacity-100 transition-opacity">⠿</span>
+                               {row.member}
+                            </td>
+                            {isAdmin && (
+                                <td className="p-3 text-right">
+                                    <div className="flex justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                            onClick={() => {
+                                                const member = members.find(m => m.id === row.memberId);
+                                                if (member) {
+                                                    setEditingMember(member);
+                                                    setNewMemberName(member.name);
+                                                    setNewMemberId(member.cumbraId);
+                                                }
+                                            }}
+                                            className="bg-mc-yellow border-2 border-black p-1 text-[10px] shadow-[1px_1px_0px_#000]"
+                                        >
+                                            ✎
+                                        </button>
+                                        <button 
+                                            onClick={() => row.memberId && toggleMemberRosterStatus(row.memberId)}
+                                            className={`border-2 border-black p-1 text-[10px] shadow-[1px_1px_0px_#000] ${
+                                                members.find(m => m.id === row.memberId)?.rosterActive !== false ? 'bg-mc-red text-white' : 'bg-mc-green'
+                                            }`}
+                                        >
+                                            {members.find(m => m.id === row.memberId)?.rosterActive !== false ? 'OFF' : 'ON'}
+                                        </button>
+                                    </div>
+                                </td>
+                            )}
                          </tr>
                       ))}
                    </tbody>
@@ -439,6 +447,36 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
              </div>
           </div>
       </div>
+
+      {/* MODAL ADICIONAR/EDITAR MEMBRO */}
+      {(showAddMember || editingMember) && (
+        <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-mc-red p-6 max-w-sm w-full shadow-brutal-white">
+            <h3 className="font-display text-3xl text-black uppercase mb-6 border-b-2 border-black pb-2">
+                {editingMember ? 'AJUSTAR CUMPADRE' : 'NOVO RECRUTA'}
+            </h3>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase opacity-40">APELIDO / NOME</label>
+                <input autoFocus className="w-full bg-zinc-100 border-2 border-black p-3 text-black font-mono uppercase outline-none focus:bg-white" value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} placeholder="EX: TROVÃO" />
+              </div>
+              <div className="space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase opacity-40">NÚMERO / ID (F4-XX OU XX OU -)</label>
+                <input className="w-full bg-zinc-100 border-2 border-black p-3 text-black font-mono uppercase outline-none focus:bg-white" value={newMemberId} onChange={(e) => setNewMemberId(e.target.value)} placeholder="EX: 26" />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button 
+                    onClick={editingMember ? updateMemberName : addNewMemberToRoster} 
+                    className="flex-1 bg-mc-red text-white font-display text-2xl py-2 border-2 border-black shadow-brutal-small active:shadow-none active:translate-x-1 active:translate-y-1"
+                >
+                    {editingMember ? 'ATUALIZAR' : 'ADICIONAR'}
+                </button>
+                <button onClick={() => { setShowAddMember(false); setEditingMember(null); }} className="flex-1 bg-black text-white font-mono text-xs py-2 border-2 border-white">CANCELAR</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editingSlotId && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4">
