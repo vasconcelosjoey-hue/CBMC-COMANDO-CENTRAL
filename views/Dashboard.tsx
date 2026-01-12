@@ -180,15 +180,6 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     setLoading(false);
   };
 
-  const todayDuty = useMemo(() => {
-    const now = new Date();
-    if (now.getMonth() === viewMonth && now.getFullYear() === viewYear) {
-      const dayData = checklistData.find(d => d.day === now.getDate());
-      return dayData?.memberId ? dayData.memberName : "VAGO";
-    }
-    return "NAVEGANDO NO ARQUIVO";
-  }, [checklistData, viewMonth, viewYear]);
-
   // AÇÕES INDIVIDUAIS NA TABELA
   const handleDayMemberChange = async (dayIndex: number, newMemberId: string | null) => {
     if (!isAdmin) return;
@@ -330,21 +321,6 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* MISSÃO DO DIA */}
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-mc-yellow border-4 border-black p-4 md:p-6 shadow-brutal-red flex flex-col md:flex-row items-center gap-6 animate-pulse-soft">
-          <div className="bg-black text-white p-3 font-mono text-xs font-black uppercase tracking-widest leading-none text-center md:text-left">
-            MISSÃO<br/>DO DIA
-          </div>
-          <div className="flex-1 text-center md:text-left">
-            <span className="text-black font-display text-4xl md:text-6xl leading-none uppercase tracking-tighter block truncate">
-              {todayDuty}
-            </span>
-            <span className="text-black font-mono text-[10px] font-black uppercase opacity-60 tracking-widest">RESPONSÁVEL PELA MANUTENÇÃO</span>
           </div>
         </div>
       </div>
