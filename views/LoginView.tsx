@@ -1,5 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 interface LoginViewProps {
   onSuccess: () => void;
@@ -10,26 +12,47 @@ interface LoginViewProps {
 const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onCancel, targetArea }) => {
   const [key, setKey] = useState('');
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError(false);
     
-    // Configuração de senhas conforme solicitado
-    const PASSWORDS: Record<string, string> = {
-      'presidency': 'cbmcpres2008',
-      'annual-checklist': 'cbmcpres2008', // Acesso via presidência
-      'payments': 'cbmcteou2008'
-    };
+    try {
+      // Busca as chaves oficiais no Firestore
+      const docRef = doc(db, "config", "acesso");
+      const docSnap = await getDoc(docRef);
 
-    const expectedKey = PASSWORDS[targetArea] || 'CBMC2026';
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        let expectedKey = "";
 
-    if (key === expectedKey) {
-      onSuccess();
-    } else {
+        // Define qual senha validar baseado na área
+        if (targetArea === 'payments') {
+          expectedKey = data.tesouraria;
+        } else {
+          // presidency e annual-checklist usam a chave da presidência
+          expectedKey = data.presidencia;
+        }
+
+        if (key === expectedKey) {
+          onSuccess();
+        } else {
+          throw new Error("Chave inválida");
+        }
+      } else {
+        console.error("Configuração de acesso não encontrada no Firebase.");
+        // Fallback de segurança caso o banco falhe
+        if (key === 'CBMC2026') onSuccess();
+        else throw new Error("Erro de banco");
+      }
+    } catch (err) {
       setError(true);
-      // Efeito visual de erro (shake)
-      setTimeout(() => setError(false), 500);
+      setTimeout(() => setError(false), 800);
       setKey('');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,9 +99,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onCancel, targetArea }
             <input 
               type="password"
               autoFocus
+              disabled={loading}
               value={key}
               onChange={(e) => setKey(e.target.value)}
-              className="w-full bg-gray-100 border-4 border-black p-5 text-black font-mono text-center text-3xl focus:bg-white focus:border-mc-red outline-none transition-all placeholder:opacity-10 shadow-inner"
+              className="w-full bg-gray-100 border-4 border-black p-5 text-black font-mono text-center text-3xl focus:bg-white focus:border-mc-red outline-none transition-all placeholder:opacity-10 shadow-inner disabled:opacity-50"
               placeholder="••••••••"
             />
           </div>
@@ -86,7 +110,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onCancel, targetArea }
           {error && (
             <div className="bg-mc-red text-white p-3 border-4 border-black text-center shadow-[4px_4px_0px_#000]">
               <p className="font-mono text-xs font-black uppercase">
-                [ CÓDIGO INVÁLIDO ]
+                [ ACESSO NEGADO ]
               </p>
             </div>
           )}
@@ -94,9 +118,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onCancel, targetArea }
           <div className="flex flex-col gap-4">
             <button 
               type="submit"
-              className="w-full bg-mc-red text-white font-display text-4xl py-5 border-4 border-black shadow-[6px_6px_0px_#000] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all uppercase active:bg-black font-bold"
+              disabled={loading}
+              className="w-full bg-mc-red text-white font-display text-4xl py-5 border-4 border-black shadow-[6px_6px_0px_#000] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all uppercase active:bg-black font-bold disabled:bg-zinc-800"
             >
-              DESBLOQUEAR
+              {loading ? 'VALIDANDO...' : 'DESBLOQUEAR'}
             </button>
             <button 
               type="button"

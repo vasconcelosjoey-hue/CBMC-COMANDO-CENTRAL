@@ -1,19 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { BackButton } from '../components/UI';
+import { db } from '../firebase';
+import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 interface ChecklistsProps {
   onBack: () => void;
 }
 
-const STORAGE_KEYS = {
-  DAILY: 'cbmc_checklist_daily_v1',
-  FIXED: 'cbmc_checklist_fixed_v1'
-};
-
 const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
   const month = "JANEIRO";
   const year = "2026";
+  const docId = `january_2026`;
   
   const roster = [
     "ZANGGADO", "JOHNNY", "JAKÃO", "MOCO", "KATATAU", 
@@ -23,54 +21,80 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
 
   const weekdays = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
 
-  const [dailyData, setDailyData] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.DAILY);
-    if (saved) return JSON.parse(saved);
-    return Array.from({ length: 31 }, (_, i) => {
-      const day = i + 1;
-      const dateObj = new Date(2026, 0, day);
-      return {
-        date: `${day.toString().padStart(2, '0')}/01/2026`,
-        weekday: weekdays[dateObj.getDay()],
-        member: roster[i % roster.length]
-      };
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [fixedData, setFixedData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Escuta o banco em tempo real
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "maintenance", docId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setDailyData(data.daily || []);
+        setFixedData(data.fixed || []);
+      } else {
+        // Se não existir, gera o padrão e salva
+        const initialDaily = Array.from({ length: 31 }, (_, i) => {
+          const day = i + 1;
+          const dateObj = new Date(2026, 0, day);
+          return {
+            date: `${day.toString().padStart(2, '0')}/01/2026`,
+            weekday: weekdays[dateObj.getDay()],
+            member: roster[i % roster.length]
+          };
+        });
+        const initialFixed = [
+          { days: "DIAS 1 A 7", fixed: "JB", pps: "MOCO+JAKÃO" },
+          { days: "DIAS 8 A 14", fixed: "JONAS", pps: "MOCO+JAKÃO" },
+          { days: "DIAS 15 A 21", fixed: "PAUL", pps: "MOCO+JAKÃO" },
+          { days: "DIAS 22 A 31", fixed: "BACON", pps: "MOCO+JAKÃO" },
+        ];
+        setDailyData(initialDaily);
+        setFixedData(initialFixed);
+        setDoc(doc(db, "maintenance", docId), { daily: initialDaily, fixed: initialFixed });
+      }
+      setLoading(false);
     });
-  });
+    return () => unsub();
+  }, []);
 
-  const [fixedData, setFixedData] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.FIXED);
-    if (saved) return JSON.parse(saved);
-    return [
-      { days: "DIAS 1 A 7", fixed: "JB", pps: "MOCO+JAKÃO" },
-      { days: "DIAS 8 A 14", fixed: "JONAS", pps: "MOCO+JAKÃO" },
-      { days: "DIAS 15 A 21", fixed: "PAUL", pps: "MOCO+JAKÃO" },
-      { days: "DIAS 22 A 31", fixed: "BACON", pps: "MOCO+JAKÃO" },
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.DAILY, JSON.stringify(dailyData));
-  }, [dailyData]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.FIXED, JSON.stringify(fixedData));
-  }, [fixedData]);
+  const saveToFirebase = async (newDaily: any[], newFixed: any[]) => {
+    try {
+      await setDoc(doc(db, "maintenance", docId), { daily: newDaily, fixed: newFixed });
+    } catch (e) {
+      console.error("Erro ao salvar manutenção:", e);
+    }
+  };
 
   const updateDaily = (index: number, field: string, value: string) => {
     const newData = [...dailyData];
     newData[index] = { ...newData[index], [field]: value };
     setDailyData(newData);
+    saveToFirebase(newData, fixedData);
   };
 
   const updateFixed = (index: number, field: string, value: string) => {
     const newData = [...fixedData];
     newData[index] = { ...newData[index], [field]: value };
     setFixedData(newData);
+    saveToFirebase(dailyData, newData);
   };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+      <div className="w-16 h-16 border-4 border-black border-t-mc-red rounded-full animate-spin mb-4"></div>
+      <span className="font-mono text-black font-black tracking-widest uppercase text-xs">Carregando Escalas Nuvem...</span>
+    </div>
+  );
 
   return (
     <div className="space-y-6 pb-20 bg-transparent min-h-screen">
-      <BackButton onClick={onBack} />
+      <div className="flex justify-between items-center">
+        <BackButton onClick={onBack} />
+        <div className="bg-mc-black text-mc-yellow border-2 border-mc-yellow px-2 py-1 font-mono text-[9px] font-black uppercase tracking-widest">
+          BANCO DE DADOS ATIVO
+        </div>
+      </div>
       
       <div className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document">
         <div className="bg-white p-6 md:p-10 flex flex-col md:flex-row justify-between items-center gap-6 border-b-2 border-black/10">

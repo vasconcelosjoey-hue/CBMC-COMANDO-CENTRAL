@@ -2,6 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SectionTitle, Card, Badge, BackButton } from '../components/UI';
 import { Member, Role } from '../types';
+import { db } from '../firebase';
+import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 interface AnnualChecklistProps {
   members: Member[];
@@ -11,9 +13,10 @@ interface AnnualChecklistProps {
 
 type AttendanceState = Record<string, Record<string, boolean>>;
 
-const STORAGE_KEY = 'cbmc_attendance_v3_stable';
-
 const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, onBack }) => {
+  const [attendance, setAttendance] = useState<AttendanceState>({});
+  const [loading, setLoading] = useState(true);
+
   const eventNames = [
     'REUNIÃO DE ATA',
     'VISITA AO CUMPADRE',
@@ -21,7 +24,7 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
     'CAFÉ NA ESTRADA'
   ];
 
-  const months = [
+  const months = useMemo(() => [
     { name: 'JANEIRO', events: eventNames },
     { name: 'FEVEREIRO', events: eventNames },
     { name: 'MARÇO', events: eventNames },
@@ -34,7 +37,7 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
     { name: 'OUTUBRO', events: eventNames },
     { name: 'NOVEMBRO', events: eventNames },
     { name: 'DEZEMBRO', events: eventNames },
-  ];
+  ], []);
 
   const totalEventsPossible = 12 * 4;
   
@@ -46,37 +49,35 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
     Role.TESOUREIRO
   ].includes(userRole);
 
-  const [attendance, setAttendance] = useState<AttendanceState>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch (e) {
-      console.error("Erro ao carregar presença:", e);
-      return {};
-    }
-  });
-
+  // Escuta o Firebase em tempo real
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(attendance));
-  }, [attendance]);
+    const unsub = onSnapshot(doc(db, "attendance", "annual_2026"), (doc) => {
+      if (doc.exists()) {
+        setAttendance(doc.data() as AttendanceState);
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
-  const toggleAttendance = (memberId: string, monthIndex: number, eventIndex: number) => {
+  const toggleAttendance = async (memberId: string, monthIndex: number, eventIndex: number) => {
     if (!isAdmin) {
       alert("ACESSO NEGADO: Apenas membros do Comando podem alterar registros oficiais.");
       return;
     }
     
     const key = `${monthIndex}-${eventIndex}`;
-    setAttendance(prev => {
-      const memberData = prev[memberId] || {};
-      return {
-        ...prev,
-        [memberId]: {
-          ...memberData,
-          [key]: !memberData[key]
-        }
-      };
-    });
+    const newAttendance = { ...attendance };
+    if (!newAttendance[memberId]) newAttendance[memberId] = {};
+    
+    newAttendance[memberId][key] = !newAttendance[memberId][key];
+
+    try {
+      await setDoc(doc(db, "attendance", "annual_2026"), newAttendance);
+    } catch (e) {
+      console.error("Erro ao salvar no Firebase:", e);
+      alert("Erro ao sincronizar. Verifique sua conexão.");
+    }
   };
 
   const getStats = (memberId: string) => {
@@ -104,8 +105,8 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
             <th className="border-2 border-black p-1 sticky left-0 bg-mc-yellow z-30">---</th>
             {months.slice(startMonth, endMonth).map((m) => 
               m.events.map((e, eIdx) => (
-                <th key={eIdx} className="border-2 border-black p-1 w-10 md:w-16 h-24 leading-tight">
-                  <div className="rotate-180 [writing-mode:vertical-lr] mx-auto text-[8px] md:text-[9px] font-black opacity-90 h-20 flex items-center justify-center text-center">
+                <th key={eIdx} className="border-2 border-black p-0 w-10 md:w-16 h-36 leading-tight overflow-hidden">
+                  <div className="rotate-180 [writing-mode:vertical-lr] mx-auto text-[9px] md:text-[11px] font-black h-32 flex items-center justify-center text-center whitespace-nowrap">
                     {e}
                   </div>
                 </th>
@@ -156,15 +157,31 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
     })).sort((a, b) => b.stats.percentage - a.stats.percentage);
   }, [attendance, members]);
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+        <div className="w-16 h-16 border-4 border-mc-red border-t-transparent rounded-full animate-spin mb-4"></div>
+        <span className="font-mono text-mc-red font-black tracking-widest uppercase text-xs">Sincronizando Banco Nuvem...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 md:space-y-8 pb-20">
-      <BackButton onClick={onBack} />
+      <div className="flex justify-between items-center">
+        <BackButton onClick={onBack} />
+        <div className="bg-mc-black border-2 border-mc-green px-3 py-1 flex items-center gap-2">
+          <div className="w-2 h-2 bg-mc-green rounded-full animate-pulse"></div>
+          <span className="text-mc-green font-mono text-[9px] font-black uppercase tracking-widest">NUVEM ATIVA</span>
+        </div>
+      </div>
+      
       <SectionTitle title="CHECKLIST VENTO ANUAL - 2026" subtitle="Controle de Frequência" />
 
       <div className="bg-mc-green/10 border-4 border-mc-green p-3 md:p-4 mb-6 md:mb-10 flex items-center gap-3 md:gap-4 shadow-brutal-green">
         <div className="w-8 h-8 md:w-10 md:h-10 bg-mc-green border-2 border-black flex items-center justify-center font-black text-black shrink-0 text-lg md:text-xl">!</div>
         <p className="font-mono text-[9px] md:text-xs text-mc-green font-black uppercase tracking-widest leading-tight">
-          SISTEMA DE PRESENÇA OPERACIONAL. CADA TOQUE É UM REGISTRO OFICIAL NO COMANDO.
+          SISTEMA DE PRESENÇA OPERACIONAL EM NUVEM. ACESSÍVEL DE QUALQUER DISPOSITIVO.
         </p>
       </div>
 
@@ -236,12 +253,6 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
                     </span>
                   </div>
                 </div>
-              </div>
-              <div className="mt-8 p-4 md:p-5 border-4 border-black bg-black text-white">
-                <p className="font-mono text-[9px] md:text-[11px] font-black uppercase leading-tight italic">
-                  "A FREQUÊNCIA É O ÚNICO INDICADOR REAL DE DISPONIBILIDADE. QUEM NÃO ESTÁ PRESENTE, NÃO PODE COMANDAR."
-                </p>
-                <p className="text-mc-red font-mono text-[8px] md:text-[9px] font-black mt-2 text-right">— COMANDO CENTRAL</p>
               </div>
             </Card>
 

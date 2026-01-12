@@ -3,6 +3,8 @@ import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SectionTitle } from '../components/UI';
 import { MOCK_MEMBERS, MOCK_ANNOUNCEMENTS, MOCK_EVENTS } from '../constants';
 import { Role, ClubEvent } from '../types';
+import { db } from '../firebase';
+import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 interface DispositivoSlot {
   id: string; 
@@ -17,11 +19,6 @@ interface DashboardProps {
   onUpdateHero: (url: string | null) => void;
   userRole: Role;
 }
-
-const STORAGE_KEYS = {
-  SLOTS: 'cbmc_dashboard_slots_v1',
-  CENTER_IMAGE: 'cbmc_center_image_v1'
-};
 
 const SlotBox: React.FC<{ 
   slot: DispositivoSlot; 
@@ -63,40 +60,94 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
   const heroInputRef = useRef<HTMLInputElement>(null);
   const centerImageInputRef = useRef<HTMLInputElement>(null);
   
-  const [centerTableImage, setCenterTableImage] = useState<string | null>(() => {
-    return localStorage.getItem(STORAGE_KEYS.CENTER_IMAGE);
-  });
+  const [centerTableImage, setCenterTableImage] = useState<string | null>(null);
+  const [slots, setSlots] = useState<Record<string, DispositivoSlot>>({});
+  const [loading, setLoading] = useState(true);
   
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
 
-  const [slots, setSlots] = useState<Record<string, DispositivoSlot>>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SLOTS);
-    if (saved) return JSON.parse(saved);
-    return {
-      'T1': { id: 'T1', label: '03 PERVERSO', sublabel: 'PRESIDENTE', color: 'red', active: true },
-      'B1': { id: 'B1', label: '24 JB', sublabel: 'SECRETÁRIO', color: 'red', active: true },
-      'L1': { id: 'L1', label: '02 ZANGGADO', sublabel: 'VICE PRESIDENTE', color: 'red', active: true },
-      'L2': { id: 'L2', label: '10 MESTRE', sublabel: 'TESOUREIRO', color: 'red', active: true },
-      'L3': { id: 'L3', label: '16 MARCÃO', sublabel: 'PREFEITO', color: 'red', active: true },
-      'L4': { id: 'L4', label: '20 PAUL', sublabel: 'MEMBRO', color: 'white', active: true },
-      'L5': { id: 'L5', label: '25 KATATAU', sublabel: 'MEMBRO', color: 'white', active: true },
-      'R1': { id: 'R1', label: '01 JOHNNY', sublabel: 'SGT ARMAS', color: 'red', active: true },
-      'R2': { id: 'R2', label: '15 DRÁKULA', sublabel: 'MEMBRO', color: 'white', active: true },
-      'R3': { id: 'R3', label: '17 BACON', sublabel: 'MEMBRO', color: 'white', active: true },
-      'R4': { id: 'R4', label: '23 JONAS', sublabel: 'MEMBRO', color: 'white', active: true },
-      'R5': { id: 'R5', label: 'VAGO', sublabel: 'MEMBRO', color: 'white', active: false },
-    };
-  });
-
+  // Sincronização em Tempo Real com Firebase
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SLOTS, JSON.stringify(slots));
-  }, [slots]);
+    // Escutar Slots
+    const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), (docSnap) => {
+      if (docSnap.exists()) {
+        setSlots(docSnap.data() as Record<string, DispositivoSlot>);
+      } else {
+        const defaultSlots: Record<string, DispositivoSlot> = {
+          'T1': { id: 'T1', label: '03 PERVERSO', sublabel: 'PRESIDENTE', color: 'red', active: true },
+          'B1': { id: 'B1', label: '24 JB', sublabel: 'SECRETÁRIO', color: 'red', active: true },
+          'L1': { id: 'L1', label: '02 ZANGGADO', sublabel: 'VICE PRESIDENTE', color: 'red', active: true },
+          'L2': { id: 'L2', label: '10 MESTRE', sublabel: 'TESOUREIRO', color: 'red', active: true },
+          'L3': { id: 'L3', label: '16 MARCÃO', sublabel: 'PREFEITO', color: 'red', active: true },
+          'L4': { id: 'L4', label: '20 PAUL', sublabel: 'MEMBRO', color: 'white', active: true },
+          'L5': { id: 'L5', label: '25 KATATAU', sublabel: 'MEMBRO', color: 'white', active: true },
+          'R1': { id: 'R1', label: '01 JOHNNY', sublabel: 'SGT ARMAS', color: 'red', active: true },
+          'R2': { id: 'R2', label: '15 DRÁKULA', sublabel: 'MEMBRO', color: 'white', active: true },
+          'R3': { id: 'R3', label: '17 BACON', sublabel: 'MEMBRO', color: 'white', active: true },
+          'R4': { id: 'R4', label: '23 JONAS', sublabel: 'MEMBRO', color: 'white', active: true },
+          'R5': { id: 'R5', label: 'VAGO', sublabel: 'MEMBRO', color: 'white', active: false },
+        };
+        setSlots(defaultSlots);
+        setDoc(doc(db, "dashboard", "slots"), defaultSlots);
+      }
+      setLoading(false);
+    });
+
+    // Escutar Imagens
+    const unsubImages = onSnapshot(doc(db, "dashboard", "images"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setCenterTableImage(data.hub || null);
+        if (data.hero) onUpdateHero(data.hero);
+      }
+    });
+
+    return () => { unsubSlots(); unsubImages(); };
+  }, []);
+
+  const handleUpdateSlot = async (id: string, field: keyof DispositivoSlot, value: any) => {
+    const newSlots = { ...slots, [id]: { ...slots[id], [field]: value } };
+    setSlots(newSlots);
+    await setDoc(doc(db, "dashboard", "slots"), newSlots);
+  };
+
+  const toggleSlotColor = async (id: string) => {
+    const newSlots = { ...slots, [id]: { ...slots[id], color: slots[id].color === 'red' ? 'white' : 'red' } };
+    setSlots(newSlots);
+    await setDoc(doc(db, "dashboard", "slots"), newSlots);
+  };
+
+  const handleHeroUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const url = reader.result as string;
+        onUpdateHero(url);
+        await setDoc(doc(db, "dashboard", "images"), { hero: url, hub: centerTableImage }, { merge: true });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCenterImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const url = reader.result as string;
+        setCenterTableImage(url);
+        await setDoc(doc(db, "dashboard", "images"), { hero: heroImage, hub: url }, { merge: true });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const months = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
   const weekDays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
   const monthEvents = useMemo(() => MOCK_EVENTS.filter(e => {
-    const eventDate = new Date(e.date + 'T12:00:00'); // Usar meio-dia para evitar problemas de fuso
+    const eventDate = new Date(e.date + 'T12:00:00'); 
     return eventDate.getFullYear() === 2026 && eventDate.getMonth() === currentMonthIndex;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [currentMonthIndex]);
 
@@ -105,44 +156,15 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
     return weekDays[date.getDay()];
   };
 
-  const handleUpdateSlot = (id: string, field: keyof DispositivoSlot, value: any) => {
-    setSlots(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
-  };
-
-  const toggleSlotColor = (id: string) => {
-    setSlots(prev => ({
-      ...prev,
-      [id]: { ...prev[id], color: prev[id].color === 'red' ? 'white' : 'red' }
-    }));
-  };
-
-  const handleCenterImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const url = reader.result as string;
-        setCenterTableImage(url);
-        localStorage.setItem(STORAGE_KEYS.CENTER_IMAGE, url);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const formatDateBR = (dateStr: string) => {
-    if (!dateStr) return '';
-    const parts = dateStr.includes('-') ? dateStr.split('-') : dateStr.split(' ');
-    if (parts.length !== 3) return dateStr;
-    const [year, month, day] = parts;
-    return `${day} ${month} ${year}`;
-  };
-
+  // Helper function to get event title for rendering
   const getEventTitle = (event: ClubEvent) => {
     if (event.type === 'VISITA' && event.location !== 'X') {
       return `VISITA: ${event.location}`;
     }
     return event.title;
   };
+
+  if (loading) return null;
 
   return (
     <div className="space-y-10 md:space-y-16 pb-20">
@@ -189,54 +211,12 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
           </div>
         </div>
 
-        <input 
-          type="file" 
-          ref={heroInputRef} 
-          className="hidden" 
-          accept="image/*" 
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              const reader = new FileReader();
-              reader.onloadend = () => onUpdateHero(reader.result as string);
-              reader.readAsDataURL(file);
-            }
-          }}
-        />
-      </div>
-
-      {/* MURAL DE AVISOS */}
-      <div className="w-full space-y-4 md:space-y-6 px-2 md:px-0">
-        <SectionTitle title="MURAL DE AVISOS" subtitle="COMUNICADOS OFICIAIS" />
-        <div className="max-w-3xl mx-auto w-full grid grid-cols-1 gap-4 md:gap-6 px-2 md:px-4">
-          {MOCK_ANNOUNCEMENTS.map(ann => (
-            <div key={ann.id} className="bg-mc-gray border-2 border-white p-4 md:p-6 shadow-brutal-red relative group">
-              <div className="mb-3 md:mb-4 border-b border-mc-red/30 pb-2 text-center">
-                 <h4 className="font-display text-xl md:text-3xl text-white leading-none uppercase tracking-widest">
-                   {ann.title}
-                 </h4>
-              </div>
-              <p className="text-white font-mono text-[10px] md:text-sm leading-relaxed italic uppercase tracking-wide text-center mb-4 md:mb-6">
-                "{ann.content}"
-              </p>
-              <div className="flex justify-between items-end border-t border-mc-red/20 pt-3 md:pt-4">
-                <div className="text-left">
-                   <span className="text-mc-red text-[7px] md:text-[8px] font-black uppercase block mb-1 font-mono">PROT</span>
-                   <span className="text-white font-mono text-[8px] md:text-[10px] font-black uppercase tracking-widest">{formatDateBR(ann.date)}</span>
-                </div>
-                <div className="text-right">
-                  <span className="block text-mc-red text-[7px] md:text-[8px] font-black uppercase mb-1 font-mono tracking-widest">AUTOR</span>
-                  <span className="text-white font-display text-xl md:text-3xl uppercase leading-none tracking-widest">{ann.author}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <input type="file" ref={heroInputRef} className="hidden" accept="image/*" onChange={handleHeroUpload} />
       </div>
 
       {/* DISPOSITIVO DE ATA */}
       <div className="space-y-4 md:space-y-6 px-1">
-        <SectionTitle title="DISPOSITIVO DE ATA" subtitle="MESA ADMINISTRATIVA" />
+        <SectionTitle title="DISPOSITIVO DE ATA" subtitle="MESA ADMINISTRATIVA COMPARTILHADA" />
         
         <div className="max-w-5xl mx-auto">
           <div className="bg-black border-4 border-white p-2 sm:p-4 md:p-10 shadow-brutal-red relative">
@@ -244,14 +224,14 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
             {/* Top Row */}
             <div className="grid grid-cols-3 gap-1 md:gap-2 mb-2 md:mb-4">
               <div className="invisible"></div>
-              <SlotBox slot={slots['T1']} onEdit={setEditingSlotId} isAdmin={isAdmin} />
+              {slots['T1'] && <SlotBox slot={slots['T1']} onEdit={setEditingSlotId} isAdmin={isAdmin} />}
               <div className="invisible"></div>
             </div>
 
             {/* Center Content */}
             <div className="grid grid-cols-3 gap-1.5 md:gap-4 items-stretch">
               <div className="flex flex-col gap-1.5 md:gap-2">
-                {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => (
+                {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && (
                   <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} />
                 ))}
               </div>
@@ -278,7 +258,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
               </div>
 
               <div className="flex flex-col gap-1.5 md:gap-2">
-                {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => (
+                {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => slots[id] && (
                   <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} />
                 ))}
               </div>
@@ -287,10 +267,9 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
             {/* Bottom Row */}
             <div className="grid grid-cols-3 gap-1 md:gap-2 mt-2 md:mt-4">
               <div className="invisible"></div>
-              <SlotBox slot={slots['B1']} onEdit={setEditingSlotId} isAdmin={isAdmin} />
+              {slots['B1'] && <SlotBox slot={slots['B1']} onEdit={setEditingSlotId} isAdmin={isAdmin} />}
               <div className="invisible"></div>
             </div>
-
           </div>
 
           {editingSlotId && (
