@@ -28,6 +28,20 @@ interface FixedChecklistRow {
   pps: string;
 }
 
+interface CalendarEvent {
+  day: string;
+  weekday: string;
+  type: string;
+  title: string;
+  location: string;
+  highlight?: boolean;
+}
+
+interface MonthCalendar {
+  name: string;
+  events: CalendarEvent[];
+}
+
 interface DashboardProps {
   members: Member[];
   heroImage: string | null;
@@ -57,6 +71,43 @@ const DEFAULT_FIXED_CHECKLIST: FixedChecklistRow[] = [
   { period: 'DIAS 8 A 14', fixed: 'DRÁKULA', pps: 'MOCO+JAKÃO' },
   { period: 'DIAS 15 A 21', fixed: 'MESTRE', pps: 'MOCO+JAKÃO' },
   { period: 'DIAS 22 A 31', fixed: 'KATATAU', pps: 'MOCO+JAKÃO' },
+];
+
+const DEFAULT_ANNUAL_CALENDAR: MonthCalendar[] = [
+  {
+    name: "JANEIRO",
+    events: [
+      { day: "10", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "16", weekday: "SEX", type: "ANIVERSÁRIO", title: "JAKÃO", location: "X", highlight: true },
+      { day: "18", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "26", weekday: "SEG", type: "ANIVERSÁRIO", title: "JOHNNY", location: "X", highlight: true },
+      { day: "30", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "31", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "SEDE CBMC" },
+    ]
+  },
+  {
+    name: "FEVEREIRO",
+    events: [
+      { day: "1", weekday: "DOM", type: "DIA INTEIRO", title: "MANUTENÇÃO GERAL", location: "SEDE CBMC" },
+      { day: "14", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "15", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "27", weekday: "SEX", type: "GIRO - NOTURNO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "27", weekday: "SEX", type: "ANIVERSÁRIO", title: "ZANGGADO", location: "X", highlight: true },
+      { day: "28", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "DRÁKULA" },
+    ]
+  },
+  {
+    name: "MARÇO",
+    events: [
+      { day: "14", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "15", weekday: "DOM", type: "ANIVERSÁRIO", title: "BACON", location: "X", highlight: true },
+      { day: "15", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "17", weekday: "TER", type: "ANIVERSÁRIO", title: "JONAS", location: "X", highlight: true },
+      { day: "23", weekday: "SEG", type: "ANIVERSÁRIO", title: "KUARENTA", location: "X", highlight: true },
+      { day: "27", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "28", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "MARCÃO" },
+    ]
+  }
 ];
 
 const SlotBox: React.FC<{ 
@@ -111,6 +162,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [checklistData, setChecklistData] = useState<ChecklistDay[]>([]);
   const [fixedChecklistData, setFixedChecklistData] = useState<FixedChecklistRow[]>(DEFAULT_FIXED_CHECKLIST);
+  const [annualCalendar, setAnnualCalendar] = useState<MonthCalendar[]>(DEFAULT_ANNUAL_CALENDAR);
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
@@ -122,6 +174,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const dispositivoRef = useRef<HTMLDivElement>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
   const fixedChecklistRef = useRef<HTMLDivElement>(null);
+  const annualCalendarRef = useRef<HTMLDivElement>(null);
   
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
   const monthsList = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
@@ -153,6 +206,18 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
       }
     });
     return () => unsubFixed();
+  }, []);
+
+  // CARREGAR CALENDÁRIO ANUAL
+  useEffect(() => {
+    const unsubCalendar = onSnapshot(doc(db, "maintenance", "annual_calendar_2026"), (docSnap) => {
+      if (docSnap.exists()) {
+        setAnnualCalendar(docSnap.data().months || DEFAULT_ANNUAL_CALENDAR);
+      } else {
+        setDoc(doc(db, "maintenance", "annual_calendar_2026"), { months: DEFAULT_ANNUAL_CALENDAR });
+      }
+    });
+    return () => unsubCalendar();
   }, []);
 
   useEffect(() => {
@@ -232,6 +297,19 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     setFixedChecklistData(newData);
     try {
       await setDoc(doc(db, "maintenance", "fixed_roster"), { rows: newData });
+    } catch (e) { console.error(e); }
+  };
+
+  const updateAnnualCalendar = async (monthIdx: number, eventIdx: number, field: keyof CalendarEvent, value: string) => {
+    if (!isAdmin) return;
+    const newCalendar = [...annualCalendar];
+    newCalendar[monthIdx].events[eventIdx] = { 
+      ...newCalendar[monthIdx].events[eventIdx], 
+      [field]: field === 'highlight' ? value : value.toUpperCase() 
+    };
+    setAnnualCalendar(newCalendar);
+    try {
+      await setDoc(doc(db, "maintenance", "annual_calendar_2026"), { months: newCalendar });
     } catch (e) { console.error(e); }
   };
 
@@ -535,7 +613,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
       </div>
 
       {/* CHECKLIST SEMANAL FIXO */}
-      <div className="space-y-6 mt-16 md:mt-24">
+      <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
           <div className="flex flex-col items-center md:items-start w-full md:w-auto">
              <div className="bg-mc-red border-4 border-black px-8 py-3 mb-2 shadow-brutal-red w-full text-center md:text-left">
@@ -585,6 +663,72 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      {/* CALENDÁRIO ANUAL 2026 - NOVO PADRÃO GRID 3 COLUNAS */}
+      <div className="space-y-6 mt-16 md:mt-24">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+          <div className="flex flex-col items-center md:items-start w-full md:w-auto">
+             <div className="bg-mc-black border-4 border-mc-red px-8 py-3 mb-2 shadow-brutal-red w-full text-center md:text-left">
+                <h2 className="text-4xl font-display text-white uppercase tracking-widest leading-none">CALENDÁRIO 2026</h2>
+             </div>
+          </div>
+          <button onClick={() => exportAsImage(annualCalendarRef, 'calendario-2026')} className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small mb-1">📸 EXPORTAR CALENDÁRIO</button>
+        </div>
+
+        <div ref={annualCalendarRef} className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 p-1">
+          {annualCalendar.map((month, monthIdx) => (
+            <div key={month.name} className="border-4 border-black bg-white shadow-document flex flex-col">
+              <div className="bg-zinc-500 text-black p-3 text-center border-b-2 border-black">
+                <span className="font-display text-3xl md:text-4xl tracking-widest uppercase font-black">{month.name}</span>
+              </div>
+              <div className="w-full">
+                <table className="w-full text-left border-collapse table-fixed">
+                  <thead>
+                    <tr className="bg-black text-white font-mono text-[10px] md:text-[12px] uppercase">
+                      <th className="p-2 border-r border-white/20 w-[18%] text-center">DIA</th>
+                      <th className="p-2 border-r border-white/20 w-[12%] text-center">SEM</th>
+                      <th className="p-2 border-r border-white/20 w-[22%] text-center">TIPO</th>
+                      <th className="p-2 border-r border-white/20 w-[30%] text-center">EVENTO</th>
+                      <th className="p-2 w-[18%] text-center">LOCAL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {month.events.map((event, eventIdx) => (
+                      <tr key={eventIdx} className={`border-b-2 border-black h-12 transition-colors ${event.highlight ? 'bg-zinc-300' : 'bg-white'}`}>
+                        <td className="p-1 border-r-2 border-black text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-display text-xl md:text-2xl text-black font-black uppercase outline-none" value={event.day} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'day', e.target.value)} />
+                        </td>
+                        <td className="p-1 border-r-2 border-black text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[10px] md:text-xs text-black font-black uppercase outline-none" value={event.weekday} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'weekday', e.target.value)} />
+                        </td>
+                        <td className="p-1 border-r-2 border-black text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[9px] md:text-[10px] text-black font-black uppercase outline-none" value={event.type} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'type', e.target.value)} />
+                        </td>
+                        <td className="p-1 border-r-2 border-black text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-display text-lg md:text-xl text-black font-black uppercase outline-none" value={event.title} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'title', e.target.value)} />
+                        </td>
+                        <td className="p-1 text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[9px] md:text-[10px] text-black font-black uppercase outline-none" value={event.location} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'location', e.target.value)} />
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Linhas vazias para manter o grid alinhado */}
+                    {Array.from({ length: Math.max(0, 7 - month.events.length) }).map((_, i) => (
+                      <tr key={`empty-${i}`} className="border-b-2 border-black h-12 bg-white">
+                        <td className="border-r-2 border-black"></td>
+                        <td className="border-r-2 border-black"></td>
+                        <td className="border-r-2 border-black"></td>
+                        <td className="border-r-2 border-black"></td>
+                        <td></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
