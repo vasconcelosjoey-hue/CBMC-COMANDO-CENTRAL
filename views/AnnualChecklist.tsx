@@ -50,7 +50,6 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
     Role.TESOUREIRO
   ].includes(userRole);
 
-  // Escuta o Firebase em tempo real com tratamento de erro robusto
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "attendance", "annual_2026"), 
       (docSnap) => {
@@ -63,7 +62,7 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
       (error) => {
         console.error("Firebase Attendance Error:", error);
         setDbError(true);
-        setLoading(false); // Libera a tela para usar estado local/vazio
+        setLoading(false);
       }
     );
     return () => unsub();
@@ -83,9 +82,10 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
 
     try {
       await setDoc(doc(db, "attendance", "annual_2026"), newAttendance);
+      setDbError(false);
     } catch (e) {
       console.error("Erro ao salvar no Firebase:", e);
-      alert("ERRO DE PERMISSÃO: Não foi possível salvar. Verifique as regras do Firestore.");
+      setDbError(true);
     }
   };
 
@@ -178,8 +178,9 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
   return (
     <div className="space-y-6 md:space-y-8 pb-20">
       {dbError && (
-        <div className="bg-mc-yellow border-4 border-black p-2 text-center animate-pulse">
-          <span className="font-mono text-[10px] font-black uppercase tracking-widest">⚠️ ERRO DE PERMISSÃO FIREBASE - VERIFIQUE AS REGRAS DO CLOUD FIRESTORE</span>
+        <div className="bg-mc-yellow border-4 border-black p-4 text-center animate-pulse shadow-brutal-red mb-4">
+          <span className="font-mono text-[11px] font-black uppercase tracking-widest block mb-2">⚠️ ERRO DE PERMISSÃO FIREBASE</span>
+          <span className="font-mono text-[9px] uppercase block leading-tight">Vá no Console do Firebase > Firestore > Rules e libere o acesso (allow read, write: if true).</span>
         </div>
       )}
 
@@ -188,7 +189,7 @@ const AnnualChecklist: React.FC<AnnualChecklistProps> = ({ members, userRole, on
         <div className={`border-2 px-3 py-1 flex items-center gap-2 ${dbError ? 'bg-mc-red border-white' : 'bg-mc-black border-mc-green'}`}>
           <div className={`w-2 h-2 rounded-full animate-pulse ${dbError ? 'bg-white' : 'bg-mc-green'}`}></div>
           <span className={`font-mono text-[9px] font-black uppercase tracking-widest ${dbError ? 'text-white' : 'text-mc-green'}`}>
-            {dbError ? 'ERRO DE SINCRONIZAÇÃO' : 'NUVEM ATIVA'}
+            {dbError ? 'OFFLINE' : 'CONECTADO'}
           </span>
         </div>
       </div>
