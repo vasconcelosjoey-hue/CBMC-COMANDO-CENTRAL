@@ -40,10 +40,10 @@ const Layout: React.FC<LayoutProps> = ({
   }, []);
 
   const menuItems = [
-    { id: 'dashboard', label: 'PÁGINA INICIAL', icon: '01' },
-    { id: 'members', label: 'EFETIVO', icon: '02' },
-    { id: 'presidency', label: 'PRESIDÊNCIA', icon: '03' },
-    { id: 'payments', label: 'TESOURARIA', icon: '04' },
+    { id: 'dashboard', label: 'INÍCIO', icon: '01', smIcon: '🏠' },
+    { id: 'members', label: 'EFETIVO', icon: '02', smIcon: '🏍️' },
+    { id: 'presidency', label: 'COMANDO', icon: '03', smIcon: '⚖️' },
+    { id: 'payments', label: 'TESOURARIA', icon: '04', smIcon: '💰' },
   ];
 
   const handleProfileFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,6 +59,7 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-[#f4f4f4] flex flex-col font-mono text-black">
+      {/* HEADER FIXO */}
       <header className="fixed top-0 left-0 right-0 bg-mc-black border-b-4 border-mc-red z-[60] h-16 flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleProfileFileChange} />
@@ -88,6 +89,7 @@ const Layout: React.FC<LayoutProps> = ({
         </button>
       </header>
 
+      {/* DRAWER LATERAL (DESKTOP E ALTERNATIVO) */}
       <div className={`fixed inset-0 bg-mc-red/20 backdrop-invert z-[70] transition-all duration-200 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div 
           className={`absolute right-0 top-0 h-full w-full md:w-[450px] bg-mc-black border-l-4 border-white p-6 md:p-10 transform transition-transform duration-300 ease-in-out overflow-y-auto ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
@@ -123,11 +125,13 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </div>
 
-      <main className="flex-1 mt-16 pb-24 px-4 pt-6 md:px-12 max-w-6xl mx-auto w-full">
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="flex-1 mt-16 pb-32 md:pb-24 px-4 pt-6 md:px-12 max-w-6xl mx-auto w-full">
         {children}
       </main>
 
-      <footer className="bg-black border-t-4 border-mc-red p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+      {/* FOOTER STATUS (DESKTOP) */}
+      <footer className="hidden md:flex bg-black border-t-4 border-mc-red p-4 flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
            <div className="w-2 h-2 bg-mc-green rounded-full animate-pulse"></div>
            <span className="text-white font-mono text-[10px] uppercase font-black tracking-widest">SERVER CLOUD ATIVO</span>
@@ -139,6 +143,24 @@ const Layout: React.FC<LayoutProps> = ({
           CBMC ADMIN v4.5.0
         </div>
       </footer>
+
+      {/* MOBILE APP NAV BAR (O MENU QUE VOCÊ PRECISA) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-mc-black border-t-4 border-mc-red z-[100] h-20 flex items-center justify-around px-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+        {menuItems.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className={`flex flex-col items-center justify-center gap-1.5 flex-1 h-full transition-all active:scale-95 ${
+              activeTab === item.id 
+                ? 'text-mc-red font-black border-b-4 border-mc-red mb-[-4px] bg-mc-red/5' 
+                : 'text-white opacity-60'
+            }`}
+          >
+            <span className="text-2xl">{item.smIcon}</span>
+            <span className="text-[9px] font-mono font-black uppercase tracking-[0.1em]">{item.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 };

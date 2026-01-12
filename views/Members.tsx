@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Card, SectionTitle, Badge, BackButton } from '../components/UI';
-import { Member, Role } from '../types';
+import { Member, Role, MemberStatus } from '../types';
 
 interface MembersProps {
   userRole: Role;
@@ -17,6 +17,7 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
   
   // A lista já vem ordenada institucionalmente do App.tsx
   const selectedMember = members.find(m => m.id === selectedMemberId);
+  const activeCount = members.filter(m => m.status === MemberStatus.ATIVO).length;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,7 +44,18 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
       {!selectedMemberId ? (
         <>
           <BackButton onClick={onBack} />
-          <SectionTitle title="RELAÇÃO EFETIVO" subtitle="Antiguidade e Postos" />
+          
+          <div className="relative mb-10">
+            <SectionTitle title="RELAÇÃO EFETIVO" subtitle="Antiguidade e Postos" />
+            <div className="flex justify-center -mt-4">
+              <div className="bg-mc-black border-2 border-mc-green px-4 py-1 shadow-brutal-green">
+                <span className="text-mc-green font-mono text-[10px] md:text-xs font-black uppercase tracking-widest">
+                  TOTAL DE EFETIVOS ATIVOS: {activeCount.toString().padStart(2, '0')}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {members.map(member => (
               <div 

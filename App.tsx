@@ -30,8 +30,9 @@ const App: React.FC = () => {
     return [...list].sort((a, b) => {
       const getPriority = (m: Member) => {
         if (m.cumbraId.startsWith('F4-')) return 1; // Fundadores
-        if (!isNaN(parseInt(m.cumbraId))) return 2; // Efetivos Numéricos
-        return 3; // Prósperos
+        const num = parseInt(m.cumbraId);
+        if (!isNaN(num)) return 2; // Efetivos Numéricos
+        return 3; // Prósperos (Moco e Jakão)
       };
 
       const pA = getPriority(a);
@@ -39,17 +40,19 @@ const App: React.FC = () => {
 
       if (pA !== pB) return pA - pB;
 
-      // Ordem interna para Fundadores
+      // Ordem interna para Fundadores (F4-01, F4-02...)
       if (pA === 1) {
-        return parseInt(a.cumbraId.split('-')[1]) - parseInt(b.cumbraId.split('-')[1]);
+        const numA = parseInt(a.cumbraId.split('-')[1]);
+        const numB = parseInt(b.cumbraId.split('-')[1]);
+        return numA - numB;
       }
 
-      // Ordem interna para Efetivos (numérica)
+      // Ordem interna para Efetivos (numérica: 10, 11, 12...)
       if (pA === 2) {
         return parseInt(a.cumbraId) - parseInt(b.cumbraId);
       }
 
-      // Ordem específica para Prósperos: Moco depois Jakão
+      // Ordem específica para Prósperos: MOCO depois JAKÃO
       if (a.name === 'MOCO') return -1;
       if (b.name === 'MOCO') return 1;
       if (a.name === 'JAKÃO') return 1;

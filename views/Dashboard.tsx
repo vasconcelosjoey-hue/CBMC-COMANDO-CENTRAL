@@ -256,10 +256,15 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
                 {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleDragStart} onDrop={handleDrop} />)}
               </div>
               <div className="bg-mc-gray border-4 border-mc-red flex flex-col items-center justify-center min-h-[150px] md:min-h-[300px] relative overflow-hidden">
-                <div className="text-center opacity-20">
-                  <span className="text-white font-display text-5xl md:text-7xl block leading-none uppercase">MESA</span>
-                  <span className="text-white font-mono text-[10px] md:text-xs uppercase font-black tracking-[0.5em]">DE COMANDO</span>
+                <div className="text-center z-20 p-2">
+                  <span className="text-mc-red font-display text-7xl md:text-[12vw] block leading-none font-black tracking-tighter drop-shadow-[6px_6px_0px_rgba(255,255,255,1)]">CBMC</span>
+                  <div className="h-1 bg-mc-red w-full my-2 md:my-4"></div>
+                  <span className="text-white font-mono text-[10px] md:text-sm uppercase font-black tracking-[0.4em] opacity-80">MESA DE COMANDO</span>
                 </div>
+                {/* Visual accents for the table */}
+                <div className="absolute inset-0 border-[10px] border-black opacity-20 pointer-events-none"></div>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-full bg-mc-red/20"></div>
+                <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full h-px bg-mc-red/20"></div>
               </div>
               <div className="flex flex-col gap-2">
                 {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleDragStart} onDrop={handleDrop} />)}
