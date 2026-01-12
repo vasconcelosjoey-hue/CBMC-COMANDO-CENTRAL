@@ -25,14 +25,16 @@ const App: React.FC = () => {
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // FUNÇÃO DE ORDENAÇÃO INSTITUCIONAL OFICIAL (F4 > NÚMEROS > MOCO > JAKÃO)
+  // FUNÇÃO DE ORDENAÇÃO REVERSA: JAKÃO (1º) -> MOCO -> NÚMEROS (MAIOR P/ MENOR) -> F4 (DESCRESCENTE) -> PERVERSO (ÚLTIMO)
   const sortMembers = useCallback((list: Member[]) => {
     return [...list].sort((a, b) => {
       const getPriority = (m: Member) => {
-        if (m.cumbraId.startsWith('F4-')) return 1;
+        if (m.name === 'JAKÃO') return 1;
+        if (m.name === 'MOCO') return 2;
         const num = parseInt(m.cumbraId);
-        if (!isNaN(num)) return 2;
-        return 3; 
+        if (!isNaN(num)) return 3;
+        if (m.cumbraId.startsWith('F4-')) return 4;
+        return 5;
       };
 
       const pA = getPriority(a);
@@ -40,19 +42,18 @@ const App: React.FC = () => {
 
       if (pA !== pB) return pA - pB;
 
-      if (pA === 1) {
-        return parseInt(a.cumbraId.split('-')[1]) - parseInt(b.cumbraId.split('-')[1]);
+      // Se ambos são numéricos, ordenar do MAIOR para o MENOR
+      if (pA === 3) {
+        return parseInt(b.cumbraId) - parseInt(a.cumbraId);
       }
 
-      if (pA === 2) {
-        return parseInt(a.cumbraId) - parseInt(b.cumbraId);
+      // Se ambos são F4, seguir a lógica de 01, 02 até Perverso ser o último (03)
+      if (pA === 4) {
+        const nA = parseInt(a.cumbraId.split('-')[1]);
+        const nB = parseInt(b.cumbraId.split('-')[1]);
+        // F4-01, F4-02, F4-03 (Perverso é 03)
+        return nA - nB;
       }
-
-      // Ordem específica para Prósperos: MOCO antes de JAKÃO
-      if (a.name === 'MOCO') return -1;
-      if (b.name === 'MOCO') return 1;
-      if (a.name === 'JAKÃO') return 1;
-      if (b.name === 'JAKÃO') return -1;
       
       return a.name.localeCompare(b.name);
     });

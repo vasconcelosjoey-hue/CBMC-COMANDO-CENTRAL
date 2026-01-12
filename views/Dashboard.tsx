@@ -108,13 +108,16 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     return members.filter(m => m.rosterActive !== false);
   }, [members]);
 
-  // LÓGICA DE ESCALA INTELIGENTE (RODÍZIO RESPONSIVO)
+  // LÓGICA DE RODÍZIO INTELIGENTE (SEM EMENDAS ENTRE MESES)
   const getMemberIndexForDate = useCallback((day: number, month: number, year: number) => {
     if (!activeRotationMembers.length) return -1;
+    // Epoch estável: 01/01/2026
     const epoch = new Date(2026, 0, 1);
     const target = new Date(year, month, day);
     const diffTime = target.getTime() - epoch.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Modulo garante que o primeiro dia do mês siga a ordem do último dia do mês anterior
     return ((diffDays % activeRotationMembers.length) + activeRotationMembers.length) % activeRotationMembers.length;
   }, [activeRotationMembers]);
 
@@ -130,9 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         day,
         date: `${day.toString().padStart(2, '0')}/${(viewMonth + 1).toString().padStart(2, '0')}/${viewYear}`,
         weekday: weekdays[dateObj.getDay()],
-        member: m ? (m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`) : "SEM EFETIVO",
         memberId: m ? m.id : null,
-        // Precisamos saber o index global na lista 'members' para o swap
         globalIndex: m ? members.findIndex(orig => orig.id === m.id) : -1
       };
     });
@@ -154,7 +155,20 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     return () => unsubSlots();
   }, []);
 
-  // DRAG & DROP INTEGRADO NA TABELA
+  // TROCAR MEMBRO NO RODÍZIO ATRAVÉS DO DROPDOWN (RESPONSIVO PARA PRÓXIMOS DIAS)
+  const handleDropdownChange = (targetGlobalIndex: number, newMemberId: string) => {
+    if (!isAdmin || targetGlobalIndex === -1) return;
+    const newMemberIndexInGlobal = members.findIndex(m => m.id === newMemberId);
+    if (newMemberIndexInGlobal === -1 || newMemberIndexInGlobal === targetGlobalIndex) return;
+
+    const newList = [...members];
+    // Pegamos o membro que estava na posição e o membro novo, e trocamos suas posições na fila tática
+    const [moved] = newList.splice(newMemberIndexInGlobal, 1);
+    newList.splice(targetGlobalIndex, 0, moved);
+    
+    onUpdateRoster(newList);
+  };
+
   const handleTableDragStart = (globalIndex: number) => {
     if (globalIndex === -1) return;
     setDraggedMemberIndex(globalIndex);
@@ -350,12 +364,12 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         </div>
       </div>
 
-      {/* ESCALA COMPLETA (AGORA COM COMANDOS INTEGRADOS) */}
+      {/* CHECKLIST DIÁRIO */}
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
           <div className="flex flex-col items-center md:items-start w-full md:w-auto">
              <div className="bg-mc-red border-4 border-black px-8 py-3 mb-2 shadow-brutal-red w-full text-center md:text-left">
-                <h2 className="text-4xl font-display text-black uppercase tracking-widest leading-none">ESCALA COMPLETA</h2>
+                <h2 className="text-4xl font-display text-black uppercase tracking-widest leading-none">CHECKLIST DIÁRIO</h2>
              </div>
              <div className="flex flex-wrap items-center gap-2">
                 <div className="bg-white border-2 border-black px-4 py-1 flex items-center gap-4">
@@ -380,7 +394,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
 
         <div ref={checklistRef} className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document overflow-hidden">
              <div className="bg-mc-red text-white p-4 flex justify-between items-center border-b-4 border-black">
-                <span className="font-display text-2xl tracking-widest uppercase">ESCALA MENSAL OFICIAL</span>
+                <span className="font-display text-2xl tracking-widest uppercase">CHECKLIST DIÁRIO OFICIAL</span>
                 <span className="font-mono text-xs font-black uppercase">{monthsList[viewMonth]} / {viewYear}</span>
              </div>
              <div className="w-full overflow-x-auto">
@@ -389,7 +403,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                       <tr className="bg-black text-white font-mono text-[10px] uppercase">
                          <th className="p-3 border-r border-white/10 w-24 text-center">DATA</th>
                          <th className="p-3 border-r border-white/10 w-32">DIA</th>
-                         <th className="p-3">CUMPADRE RESPONSÁVEL (ARRASTE PARA REORDENAR)</th>
+                         <th className="p-3">CUMPADRE RESPONSÁVEL (ARRASTE OU MUDE O NOME)</th>
                          {isAdmin && <th className="p-3 text-right">AÇÕES</th>}
                       </tr>
                    </thead>
@@ -401,7 +415,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                             onDragStart={() => handleTableDragStart(row.globalIndex)}
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={() => handleTableDrop(row.globalIndex)}
-                            className={`border-b border-black/5 group cursor-move transition-colors ${
+                            className={`border-b border-black/5 group transition-colors ${
                                 row.date.split('/')[0] === new Date().getDate().toString().padStart(2, '0') && viewMonth === new Date().getMonth() 
                                 ? 'bg-mc-yellow/40' 
                                 : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
@@ -411,7 +425,19 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                             <td className="p-3 font-mono text-[10px] text-black border-r border-black/5 font-black uppercase opacity-60">{row.weekday}</td>
                             <td className="p-3 font-mono font-black text-[14px] md:text-lg uppercase flex items-center gap-3">
                                <span className="opacity-20 group-hover:opacity-100 transition-opacity">⠿</span>
-                               {row.member}
+                               <select 
+                                 disabled={!isAdmin}
+                                 className="bg-transparent border-none font-mono font-black uppercase outline-none focus:bg-mc-yellow appearance-none cursor-pointer p-1 rounded"
+                                 value={row.memberId || ''}
+                                 onChange={(e) => handleDropdownChange(row.globalIndex, e.target.value)}
+                               >
+                                 <option value="" disabled>SELECIONE</option>
+                                 {members.map(m => (
+                                   <option key={m.id} value={m.id}>
+                                     {m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`}
+                                   </option>
+                                 ))}
+                               </select>
                             </td>
                             {isAdmin && (
                                 <td className="p-3 text-right">
