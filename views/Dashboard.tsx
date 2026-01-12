@@ -107,6 +107,102 @@ const DEFAULT_ANNUAL_CALENDAR: MonthCalendar[] = [
       { day: "27", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
       { day: "28", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "MARCÃO" },
     ]
+  },
+  {
+    name: "ABRIL",
+    events: [
+      { day: "5", weekday: "DOM", type: "DIA INTEIRO", title: "MANUTENÇÃO GERAL", location: "SEDE CBMC" },
+      { day: "11", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "19", weekday: "DOM", type: "MANHÃ", title: "CAFÉ NA ESTRADA", location: "SEDE CBMC" },
+      { day: "24", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "25", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "BACON" },
+    ]
+  },
+  {
+    name: "MAIO",
+    events: [
+      { day: "9", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "17", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "29", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "30", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "PAUL" },
+    ]
+  },
+  {
+    name: "JUNHO",
+    events: [
+      { day: "6", weekday: "SÁB", type: "ANIVERSÁRIO", title: "PERVERSO", location: "X", highlight: true },
+      { day: "7", weekday: "DOM", type: "DIA INTEIRO", title: "MANUTENÇÃO GERAL", location: "SEDE CBMC" },
+      { day: "13", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "21", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "26", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+    ]
+  },
+  {
+    name: "JULHO",
+    events: [
+      { day: "11", weekday: "SÁB", type: "DIA INTEIRO", title: "SEM JOÃO", location: "X" },
+      { day: "11", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "19", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "25", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "JB" },
+      { day: "31", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+    ]
+  },
+  {
+    name: "AGOSTO",
+    events: [
+      { day: "2", weekday: "DOM", type: "DIA INTEIRO", title: "MANUTENÇÃO GERAL", location: "SEDE CBMC" },
+      { day: "6", weekday: "QUI", type: "DIA INTEIRO", title: "VIAGEM CUMBRA 18º", location: "X" },
+      { day: "7", weekday: "SEX", type: "DIA INTEIRO", title: "VIAGEM CUMBRA 18º", location: "X" },
+      { day: "8", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "X" },
+      { day: "9", weekday: "DOM", type: "DIA INTEIRO", title: "VIAGEM CUMBRA 18º", location: "X" },
+      { day: "16", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "24", weekday: "SEG", type: "ANIVERSÁRIO", title: "JB", location: "X", highlight: true },
+      { day: "28", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "29", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "KATATAU" },
+    ]
+  },
+  {
+    name: "SETEMBRO",
+    events: [
+      { day: "12", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "20", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "25", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "26", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "MOCO" },
+      { day: "26", weekday: "SÁB", type: "ANIVERSÁRIO", title: "MESTRE", location: "X", highlight: true },
+    ]
+  },
+  {
+    name: "OUTUBRO",
+    events: [
+      { day: "4", weekday: "DOM", type: "DIA INTEIRO", title: "MANUTENÇÃO GERAL", location: "SEDE CBMC" },
+      { day: "10", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "18", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "19", weekday: "SEG", type: "ANIVERSÁRIO", title: "DRÁKULA", location: "X", highlight: true },
+      { day: "30", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "31", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "JAKÃO" },
+    ]
+  },
+  {
+    name: "NOVEMBRO",
+    events: [
+      { day: "5", weekday: "QUI", type: "ANIVERSÁRIO", title: "MARCÃO", location: "X", highlight: true },
+      { day: "14", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "15", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
+      { day: "20", weekday: "SEX", type: "ANIVERSÁRIO", title: "PAUL", location: "X", highlight: true },
+      { day: "27", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "27", weekday: "SEX", type: "ANIVERSÁRIO", title: "KATATAU", location: "X", highlight: true },
+      { day: "28", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "JOHNNY" },
+    ]
+  },
+  {
+    name: "DEZEMBRO",
+    events: [
+      { day: "6", weekday: "DOM", type: "DIA INTEIRO", title: "MANUTENÇÃO GERAL", location: "SEDE CBMC" },
+      { day: "6", weekday: "DOM", type: "ANIVERSÁRIO", title: "BOB PAI", location: "X", highlight: true },
+      { day: "12", weekday: "SÁB", type: "DIA INTEIRO", title: "CONFRATERNIZAÇÃO", location: "X" },
+      { day: "12", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "17", weekday: "QUI", type: "ANIVERSÁRIO", title: "MOCO", location: "X", highlight: true },
+    ]
   }
 ];
 
