@@ -7,6 +7,7 @@ interface LayoutProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onUpdateProfilePhoto: (url: string) => void;
+  onLogout: () => void;
   userRole: Role;
   userPhoto?: string;
 }
@@ -15,7 +16,8 @@ const Layout: React.FC<LayoutProps> = ({
   children, 
   activeTab, 
   setActiveTab, 
-  onUpdateProfilePhoto, 
+  onUpdateProfilePhoto,
+  onLogout,
   userRole, 
   userPhoto
 }) => {
@@ -44,17 +46,9 @@ const Layout: React.FC<LayoutProps> = ({
     }
   };
 
-  const mobileNavItems = [
-    menuItems[0], // Dashboard
-    menuItems[1], // Presidency
-    menuItems[2], // Efetivo
-    menuItems[3], // Announcements
-    menuItems[4], // Payments
-  ];
-
   return (
     <div className="min-h-screen bg-[#f4f4f4] flex flex-col font-mono text-black">
-      <header className="fixed top-0 left-0 right-0 bg-mc-black border-b-4 border-mc-red z-50 h-16 flex items-center justify-between px-4">
+      <header className="fixed top-0 left-0 right-0 bg-mc-black border-b-4 border-mc-red z-[60] h-16 flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleProfileFileChange} />
           <div className="relative">
@@ -66,9 +60,9 @@ const Layout: React.FC<LayoutProps> = ({
               {userPhoto ? <img src={userPhoto} alt="User" className="w-full h-full object-cover grayscale" /> : <span className="text-black font-black">CB</span>}
             </div>
           </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="font-display text-[18px] md:text-[34px] text-white leading-none tracking-widest uppercase truncate">
-              CUMPADRES DO BRASIL - <span className="text-mc-red">COMANDO CENTRAL</span>
+          <div className="flex flex-col overflow-hidden max-w-[200px] sm:max-w-none">
+            <span className="font-display text-[14px] sm:text-[28px] md:text-[34px] text-white leading-none tracking-widest uppercase truncate">
+              CUMPADRES DO BRASIL - <span className="text-mc-red">COMANDO</span>
             </span>
           </div>
         </div>
@@ -83,7 +77,7 @@ const Layout: React.FC<LayoutProps> = ({
         </button>
       </header>
 
-      <div className={`fixed inset-0 bg-mc-red/20 backdrop-invert z-40 transition-all duration-200 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
+      <div className={`fixed inset-0 bg-mc-red/20 backdrop-invert z-[70] transition-all duration-200 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div 
           className={`absolute right-0 top-0 h-full w-full md:w-[450px] bg-mc-black border-l-4 border-white p-6 md:p-10 transform transition-transform duration-300 ease-in-out overflow-y-auto ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
           onClick={e => e.stopPropagation()}
@@ -117,7 +111,10 @@ const Layout: React.FC<LayoutProps> = ({
           </nav>
 
           <div className="sticky bottom-0 bg-mc-black pt-4 pb-6 border-t-2 border-white mt-8">
-            <button className="w-full py-5 border-4 border-mc-red bg-mc-black text-mc-red font-display text-3xl hover:bg-mc-red hover:text-white transition-all uppercase shadow-brutal-white active:shadow-none active:translate-x-1 active:translate-y-1">
+            <button 
+              onClick={() => { onLogout(); setIsMenuOpen(false); }}
+              className="w-full py-5 border-4 border-mc-red bg-mc-black text-mc-red font-display text-3xl hover:bg-mc-red hover:text-white transition-all uppercase shadow-brutal-white active:shadow-none active:translate-x-1 active:translate-y-1"
+            >
               LOGOUT SESSION
             </button>
           </div>
@@ -127,30 +124,6 @@ const Layout: React.FC<LayoutProps> = ({
       <main className="flex-1 mt-16 pb-24 px-4 pt-6 md:px-12 max-w-6xl mx-auto w-full">
         {children}
       </main>
-      
-      <nav className="fixed bottom-0 left-0 right-0 bg-mc-black border-t-4 border-mc-red z-50 h-16 grid grid-cols-5 md:hidden">
-        {mobileNavItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center justify-center transition-all ${
-              activeTab === item.id 
-                ? 'bg-mc-red text-white' 
-                : 'text-mc-red hover:bg-mc-red/10'
-            }`}
-          >
-            <span className="text-lg">{item.smIcon}</span>
-            <span className="font-display text-[10px] mt-0.5 tracking-tighter">{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <footer className="hidden md:flex fixed bottom-0 left-0 right-0 h-8 bg-mc-red border-t-2 border-white z-50 px-4 items-center justify-between overflow-hidden">
-        <div className="flex items-center gap-4">
-          <span className="text-black text-[10px] font-black tracking-widest uppercase truncate animate-pulse">STATUS: CUMPADRES DO BRASIL // CONNECTED</span>
-        </div>
-        <span className="text-black text-[10px] font-black">CBMC CORE v3</span>
-      </footer>
     </div>
   );
 };

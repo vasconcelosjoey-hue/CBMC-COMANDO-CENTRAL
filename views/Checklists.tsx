@@ -1,10 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BackButton } from '../components/UI';
 
 interface ChecklistsProps {
   onBack: () => void;
 }
+
+const STORAGE_KEYS = {
+  DAILY: 'cbmc_checklist_daily_v1',
+  FIXED: 'cbmc_checklist_fixed_v1'
+};
 
 const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
   const month = "JANEIRO";
@@ -18,23 +23,38 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
 
   const weekdays = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
 
-  const initialData = Array.from({ length: 31 }, (_, i) => {
-    const day = i + 1;
-    const dateObj = new Date(2026, 0, day);
-    return {
-      date: `${day.toString().padStart(2, '0')}/01/2026`,
-      weekday: weekdays[dateObj.getDay()],
-      member: roster[i % roster.length]
-    };
+  const [dailyData, setDailyData] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.DAILY);
+    if (saved) return JSON.parse(saved);
+    return Array.from({ length: 31 }, (_, i) => {
+      const day = i + 1;
+      const dateObj = new Date(2026, 0, day);
+      return {
+        date: `${day.toString().padStart(2, '0')}/01/2026`,
+        weekday: weekdays[dateObj.getDay()],
+        member: roster[i % roster.length]
+      };
+    });
   });
 
-  const [dailyData, setDailyData] = useState(initialData);
-  const [fixedData, setFixedData] = useState([
-    { days: "DIAS 1 A 7", fixed: "JB", pps: "MOCO+JAKÃO" },
-    { days: "DIAS 8 A 14", fixed: "JONAS", pps: "MOCO+JAKÃO" },
-    { days: "DIAS 15 A 21", fixed: "PAUL", pps: "MOCO+JAKÃO" },
-    { days: "DIAS 22 A 31", fixed: "BACON", pps: "MOCO+JAKÃO" },
-  ]);
+  const [fixedData, setFixedData] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.FIXED);
+    if (saved) return JSON.parse(saved);
+    return [
+      { days: "DIAS 1 A 7", fixed: "JB", pps: "MOCO+JAKÃO" },
+      { days: "DIAS 8 A 14", fixed: "JONAS", pps: "MOCO+JAKÃO" },
+      { days: "DIAS 15 A 21", fixed: "PAUL", pps: "MOCO+JAKÃO" },
+      { days: "DIAS 22 A 31", fixed: "BACON", pps: "MOCO+JAKÃO" },
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.DAILY, JSON.stringify(dailyData));
+  }, [dailyData]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.FIXED, JSON.stringify(fixedData));
+  }, [fixedData]);
 
   const updateDaily = (index: number, field: string, value: string) => {
     const newData = [...dailyData];
@@ -53,7 +73,6 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
       <BackButton onClick={onBack} />
       
       <div className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document">
-        {/* Header Institucional conforme imagem */}
         <div className="bg-white p-6 md:p-10 flex flex-col md:flex-row justify-between items-center gap-6 border-b-2 border-black/10">
           <h2 className="text-black font-display text-4xl md:text-6xl tracking-tighter font-normal leading-none text-center md:text-left">
             CUMPADRES DO BRASIL MOTO CLUBE
@@ -65,7 +84,6 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
           </div>
         </div>
 
-        {/* Banner de Título Centralizado e Refinado conforme solicitado */}
         <div className="bg-mc-red text-white py-6 px-4 text-center border-y-4 border-black flex justify-center items-center">
           <h3 className="font-display text-2xl md:text-4xl lg:text-5xl tracking-[0.4em] font-light uppercase leading-tight text-center w-full">
             ESCALA DE MANUTENÇÃO - CHECK LIST
@@ -82,19 +100,10 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
               </tr>
             </thead>
             <tbody>
-              {dailyData.map((row, idx) => (
-                <tr 
-                  key={idx} 
-                  className={`border-b border-black/5 group hover:bg-mc-red/5 transition-colors ${
-                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                  }`}
-                >
-                  <td className="p-3 text-center font-mono text-[11px] md:text-sm text-black border-r border-black/5 font-medium">
-                    {row.date}
-                  </td>
-                  <td className="p-3 font-mono text-[11px] md:text-sm text-black border-r border-black/5 font-bold uppercase tracking-tight">
-                    {row.weekday}
-                  </td>
+              {dailyData.map((row: any, idx: number) => (
+                <tr key={idx} className={`border-b border-black/5 group hover:bg-mc-red/5 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <td className="p-3 text-center font-mono text-[11px] md:text-sm text-black border-r border-black/5 font-medium">{row.date}</td>
+                  <td className="p-3 font-mono text-[11px] md:text-sm text-black border-r border-black/5 font-bold uppercase tracking-tight">{row.weekday}</td>
                   <td className="p-3">
                     <input 
                       type="text" 
@@ -125,7 +134,7 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
               </tr>
             </thead>
             <tbody>
-              {fixedData.map((row, idx) => {
+              {fixedData.map((row: any, idx: number) => {
                 const rangeLabel = row.days.replace("DIAS ", "");
                 return (
                   <tr key={idx} className="border-b-2 border-black/10 bg-white group hover:bg-mc-yellow/10 transition-all">
@@ -156,13 +165,6 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
               })}
             </tbody>
           </table>
-        </div>
-        
-        <div className="bg-mc-yellow p-4 border-2 border-black flex items-center gap-4">
-          <div className="w-10 h-10 bg-black flex items-center justify-center text-mc-yellow font-black text-2xl italic shrink-0">!</div>
-          <p className="text-black font-mono text-[10px] md:text-xs font-black uppercase leading-tight">
-            ESTE DOCUMENTO É UMA DIRETRIZ OPERACIONAL. O DESCUMPRIMENTO DA ESCALA ACARRETARÁ EM SANÇÕES DISCIPLINARES CONFORME O REGIMENTO.
-          </p>
         </div>
       </div>
     </div>

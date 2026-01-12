@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SectionTitle } from '../components/UI';
 import { MOCK_MEMBERS, MOCK_ANNOUNCEMENTS, MOCK_EVENTS } from '../constants';
 import { Role, ClubEvent } from '../types';
@@ -18,15 +18,19 @@ interface DashboardProps {
   userRole: Role;
 }
 
+const STORAGE_KEYS = {
+  SLOTS: 'cbmc_dashboard_slots_v1',
+  CENTER_IMAGE: 'cbmc_center_image_v1'
+};
+
 const SlotBox: React.FC<{ 
   slot: DispositivoSlot; 
   onEdit: (id: string) => void;
-  onToggleColor: (id: string) => void;
   isAdmin: boolean;
-}> = ({ slot, onEdit, onToggleColor, isAdmin }) => (
+}> = ({ slot, onEdit, isAdmin }) => (
   <div 
     className={`relative border-2 transition-all duration-200 flex flex-col justify-center min-h-[45px] md:min-h-[75px] p-1 md:p-2 text-center shadow-brutal-small group ${
-      !slot.active ? 'bg-zinc-900 border-dashed border-zinc-700 opacity-20 hover:opacity-100' : 
+      !slot.active ? 'bg-zinc-200 border-dashed border-zinc-400 opacity-20 hover:opacity-100' : 
       slot.color === 'red' ? 'bg-mc-red text-white border-white' : 'bg-white text-black border-black'
     }`}
   >
@@ -58,35 +62,46 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
   const [currentMonthIndex, setCurrentMonthIndex] = useState(new Date().getMonth()); 
   const heroInputRef = useRef<HTMLInputElement>(null);
   const centerImageInputRef = useRef<HTMLInputElement>(null);
-  const [centerTableImage, setCenterTableImage] = useState<string | null>(null);
   
-  const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO].includes(userRole);
-
-  const [slots, setSlots] = useState<Record<string, DispositivoSlot>>({
-    'T1': { id: 'T1', label: '03 PERVERSO', sublabel: 'PRESIDENTE', color: 'red', active: true },
-    'B1': { id: 'B1', label: '24 JB', sublabel: 'SECRETÁRIO', color: 'red', active: true },
-    'L1': { id: 'L1', label: '02 ZANGGADO', sublabel: 'VICE PRESIDENTE', color: 'red', active: true },
-    'L2': { id: 'L2', label: '10 MESTRE', sublabel: 'TESOUREIRO', color: 'red', active: true },
-    'L3': { id: 'L3', label: '16 MARCÃO', sublabel: 'PREFEITO', color: 'red', active: true },
-    'L4': { id: 'L4', label: '20 PAUL', sublabel: 'MEMBRO', color: 'white', active: true },
-    'L5': { id: 'L5', label: '25 KATATAU', sublabel: 'MEMBRO', color: 'white', active: true },
-    'R1': { id: 'R1', label: '01 JOHNNY', sublabel: 'SGT ARMAS', color: 'red', active: true },
-    'R2': { id: 'R2', label: '15 DRÁKULA', sublabel: 'MEMBRO', color: 'white', active: true },
-    'R3': { id: 'R3', label: '17 BACON', sublabel: 'MEMBRO', color: 'white', active: true },
-    'R4': { id: 'R4', label: '23 JONAS', sublabel: 'MEMBRO', color: 'white', active: true },
-    'R5': { id: 'R5', label: 'VAGO', sublabel: 'MEMBRO', color: 'white', active: false },
+  const [centerTableImage, setCenterTableImage] = useState<string | null>(() => {
+    return localStorage.getItem(STORAGE_KEYS.CENTER_IMAGE);
   });
+  
+  const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
+
+  const [slots, setSlots] = useState<Record<string, DispositivoSlot>>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SLOTS);
+    if (saved) return JSON.parse(saved);
+    return {
+      'T1': { id: 'T1', label: '03 PERVERSO', sublabel: 'PRESIDENTE', color: 'red', active: true },
+      'B1': { id: 'B1', label: '24 JB', sublabel: 'SECRETÁRIO', color: 'red', active: true },
+      'L1': { id: 'L1', label: '02 ZANGGADO', sublabel: 'VICE PRESIDENTE', color: 'red', active: true },
+      'L2': { id: 'L2', label: '10 MESTRE', sublabel: 'TESOUREIRO', color: 'red', active: true },
+      'L3': { id: 'L3', label: '16 MARCÃO', sublabel: 'PREFEITO', color: 'red', active: true },
+      'L4': { id: 'L4', label: '20 PAUL', sublabel: 'MEMBRO', color: 'white', active: true },
+      'L5': { id: 'L5', label: '25 KATATAU', sublabel: 'MEMBRO', color: 'white', active: true },
+      'R1': { id: 'R1', label: '01 JOHNNY', sublabel: 'SGT ARMAS', color: 'red', active: true },
+      'R2': { id: 'R2', label: '15 DRÁKULA', sublabel: 'MEMBRO', color: 'white', active: true },
+      'R3': { id: 'R3', label: '17 BACON', sublabel: 'MEMBRO', color: 'white', active: true },
+      'R4': { id: 'R4', label: '23 JONAS', sublabel: 'MEMBRO', color: 'white', active: true },
+      'R5': { id: 'R5', label: 'VAGO', sublabel: 'MEMBRO', color: 'white', active: false },
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SLOTS, JSON.stringify(slots));
+  }, [slots]);
 
   const months = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
   const weekDays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
   const monthEvents = useMemo(() => MOCK_EVENTS.filter(e => {
-    const eventDate = new Date(e.date + 'T00:00:00');
+    const eventDate = new Date(e.date + 'T12:00:00'); // Usar meio-dia para evitar problemas de fuso
     return eventDate.getFullYear() === 2026 && eventDate.getMonth() === currentMonthIndex;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [currentMonthIndex]);
 
   const getDayOfWeek = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00');
+    const date = new Date(dateStr + 'T12:00:00');
     return weekDays[date.getDay()];
   };
 
@@ -105,7 +120,11 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setCenterTableImage(reader.result as string);
+      reader.onloadend = () => {
+        const url = reader.result as string;
+        setCenterTableImage(url);
+        localStorage.setItem(STORAGE_KEYS.CENTER_IMAGE, url);
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -215,7 +234,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
         </div>
       </div>
 
-      {/* DISPOSITIVO DE ATA - REVISADO PARA MOBILE */}
+      {/* DISPOSITIVO DE ATA */}
       <div className="space-y-4 md:space-y-6 px-1">
         <SectionTitle title="DISPOSITIVO DE ATA" subtitle="MESA ADMINISTRATIVA" />
         
@@ -225,7 +244,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
             {/* Top Row */}
             <div className="grid grid-cols-3 gap-1 md:gap-2 mb-2 md:mb-4">
               <div className="invisible"></div>
-              <SlotBox slot={slots['T1']} onEdit={setEditingSlotId} onToggleColor={toggleSlotColor} isAdmin={isAdmin} />
+              <SlotBox slot={slots['T1']} onEdit={setEditingSlotId} isAdmin={isAdmin} />
               <div className="invisible"></div>
             </div>
 
@@ -233,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
             <div className="grid grid-cols-3 gap-1.5 md:gap-4 items-stretch">
               <div className="flex flex-col gap-1.5 md:gap-2">
                 {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => (
-                  <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} onToggleColor={toggleSlotColor} isAdmin={isAdmin} />
+                  <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} />
                 ))}
               </div>
 
@@ -260,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
 
               <div className="flex flex-col gap-1.5 md:gap-2">
                 {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => (
-                  <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} onToggleColor={toggleSlotColor} isAdmin={isAdmin} />
+                  <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} />
                 ))}
               </div>
             </div>
@@ -268,14 +287,14 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
             {/* Bottom Row */}
             <div className="grid grid-cols-3 gap-1 md:gap-2 mt-2 md:mt-4">
               <div className="invisible"></div>
-              <SlotBox slot={slots['B1']} onEdit={setEditingSlotId} onToggleColor={toggleSlotColor} isAdmin={isAdmin} />
+              <SlotBox slot={slots['B1']} onEdit={setEditingSlotId} isAdmin={isAdmin} />
               <div className="invisible"></div>
             </div>
 
           </div>
 
           {editingSlotId && (
-            <div className="fixed inset-0 z-[70] bg-black/95 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4">
               <div className="bg-mc-gray border-4 border-mc-red p-5 max-w-sm w-full shadow-brutal-white max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-display text-2xl text-white uppercase tracking-widest leading-none">EDITAR CADEIRA</h3>
@@ -358,31 +377,6 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
                 <p className="font-mono text-[9px] md:text-[11px] font-black text-white uppercase tracking-[0.3em]">SILÊNCIO OPERACIONAL</p>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* EFETIVO ATIVO */}
-      <div className="w-full space-y-6 px-2 md:px-4">
-        <SectionTitle title="EFETIVO ATIVO" subtitle="RELAÇÃO NOMINAL" />
-        <div className="max-w-xl mx-auto bg-white border-4 border-black p-3 md:p-5 shadow-brutal-red">
-          <div className="flex items-center justify-center border-b-4 border-black mb-4 pb-2 relative">
-            <h3 className="font-display text-2xl md:text-4xl text-black leading-none uppercase tracking-widest">LISTA GERAL</h3>
-            <div className="bg-black text-white px-2 py-1 font-mono text-xs md:text-sm font-black absolute right-0">{MOCK_MEMBERS.length}</div>
-          </div>
-          <div className="space-y-2 max-h-[350px] md:max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
-            {MOCK_MEMBERS.map((m) => (
-              <div key={m.id} className="flex items-center justify-between border-b-2 border-black/10 py-2 px-1">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <span className="font-mono font-black text-[9px] md:text-[11px] text-mc-red w-8 md:w-10 shrink-0">{m.cumbraId}</span>
-                  <div className="flex flex-col">
-                    <span className="text-xs md:text-base font-black text-black uppercase truncate leading-none">{m.name}</span>
-                    <span className="text-[7px] md:text-[9px] font-mono font-bold text-gray-500 uppercase tracking-tighter">{m.role}</span>
-                  </div>
-                </div>
-                <div className={`w-2 h-2 md:w-3 md:h-3 border-2 border-black ${m.status === 'Ativo' ? 'bg-mc-green' : 'bg-gray-400'}`}></div>
-              </div>
-            ))}
           </div>
         </div>
       </div>
