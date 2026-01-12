@@ -4,6 +4,7 @@ import { BackButton, SectionTitle } from '../components/UI.tsx';
 import { db } from '../firebase.ts';
 import { doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { MOCK_MEMBERS } from '../constants.ts';
+import { Role } from '../types.ts';
 
 interface ChecklistsProps {
   onBack: () => void;
@@ -18,7 +19,12 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
 
   const months = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
   const weekdays = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
-  const roster = MOCK_MEMBERS.map(m => m.name);
+  
+  // ROSTER FORMATADA: ID + NOME (OU PRÓSPERO + NOME)
+  const roster = useMemo(() => MOCK_MEMBERS.map(m => {
+    if (m.role === Role.PROSPERO) return `PRÓSPERO ${m.name}`;
+    return `${m.cumbraId} ${m.name}`;
+  }), []);
 
   const docId = useMemo(() => `maintenance_${selectedMonth}_${selectedYear}`, [selectedMonth, selectedYear]);
 
@@ -148,7 +154,7 @@ const Checklists: React.FC<ChecklistsProps> = ({ onBack }) => {
                 <tr className="bg-black text-white font-mono text-[10px] uppercase">
                   <th className="p-3 border-r border-white/10 w-24 text-center">DATA</th>
                   <th className="p-3 border-r border-white/10 w-32">DIA</th>
-                  <th className="p-3">CUMPADRE RESPONSÁVEL</th>
+                  <th className="p-3">CUMPADRE RESPONSÁVEL (ID + NOME)</th>
                 </tr>
               </thead>
               <tbody>

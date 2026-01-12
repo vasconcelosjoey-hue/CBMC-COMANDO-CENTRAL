@@ -16,6 +16,7 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const sortedMembers = [...members].sort((a, b) => {
+    // Ordenar por função e depois por nome
     return a.name.localeCompare(b.name);
   });
 
@@ -36,34 +37,45 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
     fileInputRef.current?.click();
   };
 
+  const getFullDisplayName = (m: Member) => {
+    if (m.role === Role.PROSPERO) return `PRÓSPERO ${m.name}`;
+    return `${m.cumbraId} ${m.name}`;
+  };
+
   return (
     <div className="space-y-6">
       {!selectedMemberId ? (
         <>
           <BackButton onClick={onBack} />
-          <SectionTitle title="RELAÇÃO EFETIVO" subtitle="Antiguidade e Postos" />
+          <SectionTitle title="RELAÇÃO EFETIVO" subtitle="Identificação e Hierarquia" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {sortedMembers.map(member => (
               <div 
                 key={member.id} 
-                className="bg-mc-gray border-2 border-white p-3 cursor-pointer hover:bg-mc-red hover:translate-x-1 hover:-translate-y-1 hover:shadow-brutal-white transition-all group"
+                className={`bg-mc-gray border-2 p-3 cursor-pointer hover:bg-mc-red hover:translate-x-1 hover:-translate-y-1 hover:shadow-brutal-white transition-all group ${
+                  member.role === Role.PROSPERO ? 'border-dashed border-zinc-600' : 'border-white'
+                }`}
                 onClick={() => setSelectedMemberId(member.id)}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 flex items-center justify-center bg-black text-white font-mono font-black text-[10px] border-2 border-mc-red overflow-hidden">
+                  <div className="w-10 h-10 flex items-center justify-center bg-black text-white font-mono font-black text-[8px] border-2 border-mc-red overflow-hidden uppercase">
                     {member.photoUrl ? (
                       <img src={member.photoUrl} className="w-full h-full object-cover" alt="" />
                     ) : (
-                      member.cumbraId
+                      member.cumbraId.substring(0, 5)
                     )}
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-display text-3xl text-white group-hover:text-black leading-none">{member.name}</h4>
+                    <h4 className="font-display text-2xl md:text-3xl text-white group-hover:text-black leading-none uppercase tracking-tighter">
+                      {getFullDisplayName(member)}
+                    </h4>
                     <p className="text-[9px] text-mc-red font-mono font-black uppercase tracking-widest mt-0.5 group-hover:text-white">
                       {member.role}
                     </p>
                   </div>
-                  <Badge color={member.status === 'Ativo' ? 'green' : 'gray'}>{member.status}</Badge>
+                  <Badge color={member.role === Role.PROSPERO ? 'yellow' : 'green'}>
+                    {member.status}
+                  </Badge>
                 </div>
               </div>
             ))}
@@ -97,22 +109,28 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
                   onChange={handleFileChange}
                 />
                 
-                <h2 className="text-5xl font-display text-white text-center leading-none">{selectedMember?.name}</h2>
-                <p className="text-mc-red font-mono font-black uppercase text-[10px] tracking-widest mt-2">ID {selectedMember?.cumbraId}</p>
+                <h2 className="text-4xl md:text-5xl font-display text-white text-center leading-none uppercase">
+                  {selectedMember?.name}
+                </h2>
+                <div className="mt-4 px-3 py-1 bg-mc-red border-2 border-white">
+                  <span className="text-white font-mono font-black uppercase text-[12px] tracking-widest">
+                    {selectedMember?.cumbraId}
+                  </span>
+                </div>
               </div>
 
               <div className="p-6 col-span-2 space-y-6">
                 <div>
-                  <h3 className="text-mc-red font-black text-[9px] uppercase tracking-[0.3em] mb-4">CADASTRO CBMC</h3>
+                  <h3 className="text-mc-red font-black text-[9px] uppercase tracking-[0.3em] mb-4">CADASTRO INSTITUCIONAL</h3>
                   <div className="grid grid-cols-1 gap-4">
                     <div className="border-l-2 border-black pl-3">
-                      <span className="text-gray-400 block text-[9px] uppercase font-black font-mono">NOME COMPLETO</span>
-                      <span className="text-black font-display text-2xl leading-none">{selectedMember?.fullName}</span>
+                      <span className="text-gray-400 block text-[9px] uppercase font-black font-mono">NOME CIVIL</span>
+                      <span className="text-black font-display text-2xl leading-none uppercase">{selectedMember?.fullName}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="border-l-2 border-black pl-3">
                         <span className="text-gray-400 block text-[9px] uppercase font-black font-mono">POSTO</span>
-                        <span className="text-black font-display text-3xl leading-none">{selectedMember?.role}</span>
+                        <span className="text-black font-display text-3xl leading-none uppercase">{selectedMember?.role}</span>
                         </div>
                         <div className="border-l-2 border-black pl-3">
                         <span className="text-gray-400 block text-[9px] uppercase font-black font-mono">DATA INGRESSO</span>
@@ -123,7 +141,7 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-black/10 pb-1 font-mono">REGISTRO HISTÓRICO</h4>
+                  <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-black/10 pb-1 font-mono">HISTÓRICO DE CARGOS</h4>
                   <div className="space-y-1">
                     {selectedMember?.roleHistory.map((h, i) => (
                       <div key={i} className="flex items-center gap-3 bg-black/5 p-1.5 font-mono text-xs font-bold text-black border-l-2 border-mc-red uppercase">

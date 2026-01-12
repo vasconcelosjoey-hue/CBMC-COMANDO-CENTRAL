@@ -15,6 +15,11 @@ const Payments: React.FC<PaymentsProps> = ({ userRole, members, onBack }) => {
   const currentRevenue = members.filter(m => m.paymentStatus === PaymentStatus.PAGO).length * 150;
   const deficit = totalRevenue - currentRevenue;
 
+  const getFullDisplayName = (m: Member) => {
+    if (m.role === Role.PROSPERO) return `PRÓSPERO ${m.name}`;
+    return `${m.cumbraId} ${m.name}`;
+  };
+
   return (
     <div className="space-y-6">
       <BackButton onClick={onBack} />
@@ -35,12 +40,14 @@ const Payments: React.FC<PaymentsProps> = ({ userRole, members, onBack }) => {
       </Card>
 
       <div className="space-y-2">
-        <h3 className="text-[9px] font-black text-white uppercase tracking-[0.3em] bg-mc-red inline-block px-2 py-1 mb-2">LISTA DE PAGAMENTO</h3>
+        <h3 className="text-[9px] font-black text-white uppercase tracking-[0.3em] bg-mc-red inline-block px-2 py-1 mb-2">LISTA DE CONTRIBUIÇÃO</h3>
         <div className="space-y-1.5">
           {members.map(member => (
             <div key={member.id} className="bg-mc-gray border-2 border-white p-2.5 flex justify-between items-center hover:bg-white transition-colors group">
               <div className="flex flex-col">
-                <span className="text-white font-display text-3xl font-normal group-hover:text-black leading-none">{member.name}</span>
+                <span className="text-white font-display text-2xl md:text-3xl font-normal group-hover:text-black leading-none uppercase">
+                  {getFullDisplayName(member)}
+                </span>
                 <span className="text-[8px] text-mc-red font-mono font-black uppercase group-hover:text-mc-red tracking-wider mt-0.5">{member.role}</span>
               </div>
               <div className="flex items-center gap-3">

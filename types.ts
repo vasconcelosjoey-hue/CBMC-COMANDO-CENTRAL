@@ -7,13 +7,15 @@ export enum Role {
   SECRETARIO = 'Secretário',
   CAPITAO_ESTRADA = 'Capitão de Estrada',
   SARGENTO_ARMAS = 'Sargento de Armas',
-  MEMBRO = 'Membro'
+  MEMBRO = 'Membro',
+  PROSPERO = 'Próspero'
 }
 
 export enum MemberStatus {
   ATIVO = 'Ativo',
   AFASTADO = 'Afastado',
-  PUNIDO = 'Punido'
+  PUNIDO = 'Punido',
+  PROSPERO = 'Em Próspero'
 }
 
 export enum PaymentStatus {
