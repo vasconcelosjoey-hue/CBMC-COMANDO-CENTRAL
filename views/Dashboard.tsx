@@ -70,34 +70,42 @@ const SlotBox: React.FC<{
 
 const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole, onBack }) => {
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
-  const [centerTableImage, setCenterTableImage] = useState<string | null>(null);
   const [slots, setSlots] = useState<Record<string, DispositivoSlot>>(DEFAULT_SLOTS);
   const [loading, setLoading] = useState(true);
+  const [todayDuty, setTodayDuty] = useState<string>("CONSULTANDO...");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
 
   useEffect(() => {
+    // Listener Slots
     const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), 
       (docSnap) => {
-        if (docSnap.exists()) {
-          setSlots(docSnap.data() as Record<string, DispositivoSlot>);
-        }
+        if (docSnap.exists()) setSlots(docSnap.data() as Record<string, DispositivoSlot>);
         setLoading(false);
       },
       (error) => setLoading(false)
     );
 
-    const unsubImages = onSnapshot(doc(db, "dashboard", "images"), 
+    // Listener para buscar escala do dia atual
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const currentDayStr = `${now.getDate().toString().padStart(2, '0')}/${(currentMonth + 1).toString().padStart(2, '0')}/${currentYear}`;
+    
+    const unsubMaintenance = onSnapshot(doc(db, "maintenance", `maintenance_${currentMonth}_${currentYear}`), 
       (docSnap) => {
         if (docSnap.exists()) {
-          const data = docSnap.data();
-          setCenterTableImage(data.hub || null);
+          const daily = docSnap.data().daily || [];
+          const entry = daily.find((d: any) => d.date === currentDayStr);
+          setTodayDuty(entry ? entry.member : "NÃO DEFINIDO");
+        } else {
+          setTodayDuty("ESCALA NÃO GERADA");
         }
       }
     );
 
-    return () => { unsubSlots(); unsubImages(); };
+    return () => { unsubSlots(); unsubMaintenance(); };
   }, []);
 
   const handleUpdateSlot = async (id: string, field: keyof DispositivoSlot, value: any) => {
@@ -105,18 +113,14 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
     setSlots(newSlots);
     try {
       await setDoc(doc(db, "dashboard", "slots"), newSlots);
-    } catch (e) {
-      console.error("Erro Firebase Slots:", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const handleHeroFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        onUpdateHero(reader.result as string);
-      };
+      reader.onloadend = () => onUpdateHero(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -130,7 +134,24 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
 
   return (
     <div className="space-y-10 md:space-y-16 pb-20">
-      <BackButton onClick={onBack} label="SAIR DA SESSÃO" />
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <BackButton onClick={onBack} label="SAIR DA SESSÃO" />
+        
+        {/* WIDGET ESCALA DO DIA - RÉPLICA DA CHECKLIST */}
+        <div className="w-full md:w-auto bg-mc-yellow border-4 border-black p-3 md:p-4 shadow-brutal-red flex items-center gap-4 animate-pulse-soft">
+          <div className="bg-black text-white p-2 font-mono text-[10px] font-black uppercase tracking-widest leading-none">
+            MISSÃO<br/>DO DIA
+          </div>
+          <div className="flex flex-col">
+            <span className="text-black font-display text-2xl md:text-3xl leading-none uppercase tracking-tighter">
+              {todayDuty}
+            </span>
+            <span className="text-black font-mono text-[8px] font-black uppercase opacity-60 tracking-widest">
+              RESPONSÁVEL PELA MANUTENÇÃO
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* HERO SECTION */}
       <div className="relative bg-mc-red border-4 border-white shadow-brutal-white min-h-[300px] md:min-h-[450px] overflow-hidden flex items-center">
@@ -163,8 +184,8 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
                 </div>
               )}
               {isAdmin && (
-                <div className="absolute inset-0 bg-mc-red/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border-4 border-white m-2">
-                  <span className="text-white font-mono font-black text-xs uppercase tracking-widest">Trocar Brasão</span>
+                <div className="absolute inset-0 bg-mc-red/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border-4 border-white m-2 text-center">
+                  <span className="text-white font-mono font-black text-xs uppercase tracking-widest p-4">Trocar Brasão da Unidade</span>
                 </div>
               )}
             </div>
@@ -186,14 +207,10 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
                 {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} />)}
               </div>
               <div className="bg-mc-gray border-4 border-mc-red flex items-center justify-center min-h-[120px] md:min-h-[250px] relative overflow-hidden">
-                {centerTableImage ? (
-                  <img src={centerTableImage} className="w-full h-full object-contain" />
-                ) : (
-                  <div className="text-center opacity-10">
-                    <span className="text-white font-display text-4xl block leading-none">HUB</span>
-                    <span className="text-white font-mono text-[10px] uppercase font-black tracking-[0.5em]">OPERACIONAL</span>
-                  </div>
-                )}
+                <div className="text-center opacity-10">
+                  <span className="text-white font-display text-4xl block leading-none">HUB</span>
+                  <span className="text-white font-mono text-[10px] uppercase font-black tracking-[0.5em]">OPERACIONAL</span>
+                </div>
                 <div className="absolute inset-0 border border-mc-red/10 pointer-events-none"></div>
               </div>
               <div className="flex flex-col gap-2">
