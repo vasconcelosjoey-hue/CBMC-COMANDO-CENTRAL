@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CUMPADRES DO BRASIL - CBMC | GOVERNANÇA</title>
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "react": "https://esm.sh/react@^19.2.3",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+      }
+    }
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;800&family=Oswald:wght@200;300;400;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'mc-black': '#000000',
+              'mc-red': '#ff0000',
+              'mc-white': '#ffffff',
+              'mc-gray': '#111111',
+              'mc-yellow': '#faff00',
+              'mc-green': '#00ff41'
+            },
+            fontFamily: {
+              sans: ['Space Grotesk', 'sans-serif'],
+              display: ['Oswald', 'Impact', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace']
+            },
+            boxShadow: {
+              'brutal-red': '4px 4px 0px 0px #ff0000',
+              'brutal-white': '4px 4px 0px 0px #ffffff',
+              'brutal-small': '2px 2px 0px 0px #ff0000',
+              'brutal-green': '2px 2px 0px 0px #00ff41',
+              'document': '8px 8px 0px 0px rgba(0,0,0,1)'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #f4f4f4;
+        color: #000;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #eee;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #ff0000;
+      }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
+</body>
+</html>
