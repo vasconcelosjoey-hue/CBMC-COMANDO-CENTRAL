@@ -3,7 +3,7 @@ import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { SectionTitle } from '../components/UI.tsx';
 import { Role, Member, MemberStatus, PaymentStatus } from '../types.ts';
 import { db } from '../firebase.ts';
-import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import * as htmlToImage from 'html-to-image';
 
 interface DispositivoSlot {
@@ -12,6 +12,14 @@ interface DispositivoSlot {
   sublabel: string;
   color: 'red' | 'white';
   active: boolean;
+}
+
+interface ChecklistDay {
+  day: number;
+  date: string;
+  weekday: string;
+  memberId: string | null;
+  memberName: string;
 }
 
 interface DashboardProps {
@@ -88,12 +96,13 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const [loading, setLoading] = useState(true);
   const [viewMonth, setViewMonth] = useState(new Date().getMonth());
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
-  const [draggedSlotId, setDraggedSlotId] = useState<string | null>(null);
-  const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
+  const [checklistData, setChecklistData] = useState<ChecklistDay[]>([]);
+  const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberId, setNewMemberId] = useState('');
+  const [draggedSlotId, setDraggedSlotId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dispositivoRef = useRef<HTMLDivElement>(null);
@@ -103,92 +112,130 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const monthsList = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
   const weekdays = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
 
-  // FILTRA MEMBROS ATIVOS NO RODÍZIO
-  const activeRotationMembers = useMemo(() => {
-    return members.filter(m => m.rosterActive !== false);
-  }, [members]);
+  const checklistDocId = useMemo(() => `maintenance_${viewMonth}_${viewYear}`, [viewMonth, viewYear]);
 
-  // LÓGICA DE RODÍZIO INTELIGENTE (SEM EMENDAS ENTRE MESES)
-  const getMemberIndexForDate = useCallback((day: number, month: number, year: number) => {
-    if (!activeRotationMembers.length) return -1;
-    // Epoch estável: 01/01/2026
-    const epoch = new Date(2026, 0, 1);
-    const target = new Date(year, month, day);
-    const diffTime = target.getTime() - epoch.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Modulo garante que o primeiro dia do mês siga a ordem do último dia do mês anterior
-    return ((diffDays % activeRotationMembers.length) + activeRotationMembers.length) % activeRotationMembers.length;
-  }, [activeRotationMembers]);
-
-  const currentScaleData = useMemo(() => {
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1;
-      const dateObj = new Date(viewYear, viewMonth, day);
-      const mIdx = getMemberIndexForDate(day, viewMonth, viewYear);
-      const m = mIdx !== -1 ? activeRotationMembers[mIdx] : null;
-      
-      return {
-        day,
-        date: `${day.toString().padStart(2, '0')}/${(viewMonth + 1).toString().padStart(2, '0')}/${viewYear}`,
-        weekday: weekdays[dateObj.getDay()],
-        memberId: m ? m.id : null,
-        globalIndex: m ? members.findIndex(orig => orig.id === m.id) : -1
-      };
+  // CARREGAR CHECKLIST PERSISTIDO
+  useEffect(() => {
+    setLoading(true);
+    const unsub = onSnapshot(doc(db, "maintenance", checklistDocId), (docSnap) => {
+      if (docSnap.exists()) {
+        setChecklistData(docSnap.data().daily || []);
+      } else {
+        setChecklistData([]);
+      }
+      setLoading(false);
     });
-  }, [viewMonth, viewYear, getMemberIndexForDate, activeRotationMembers, members]);
-
-  const todayDuty = useMemo(() => {
-    const now = new Date();
-    const mIdx = getMemberIndexForDate(now.getDate(), now.getMonth(), now.getFullYear());
-    const m = mIdx !== -1 ? activeRotationMembers[mIdx] : null;
-    return m ? (m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`) : "SEM EFETIVO";
-  }, [getMemberIndexForDate, activeRotationMembers]);
+    return () => unsub();
+  }, [checklistDocId]);
 
   useEffect(() => {
     const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), (docSnap) => {
       if (docSnap.exists()) setSlots(docSnap.data() as Record<string, DispositivoSlot>);
       else setDoc(doc(db, "dashboard", "slots"), DEFAULT_SLOTS_DATA);
-      setLoading(false);
     });
     return () => unsubSlots();
   }, []);
 
-  // TROCAR MEMBRO NO RODÍZIO ATRAVÉS DO DROPDOWN (RESPONSIVO PARA PRÓXIMOS DIAS)
-  const handleDropdownChange = (targetGlobalIndex: number, newMemberId: string) => {
-    if (!isAdmin || targetGlobalIndex === -1) return;
-    const newMemberIndexInGlobal = members.findIndex(m => m.id === newMemberId);
-    if (newMemberIndexInGlobal === -1 || newMemberIndexInGlobal === targetGlobalIndex) return;
+  // GERAR ESCALA INTELIGENTE (SEQUENCIAL)
+  const generateChecklist = async () => {
+    setLoading(true);
+    const activeRotationMembers = members.filter(m => m.rosterActive !== false);
+    if (!activeRotationMembers.length) return;
 
-    const newList = [...members];
-    // Pegamos o membro que estava na posição e o membro novo, e trocamos suas posições na fila tática
-    const [moved] = newList.splice(newMemberIndexInGlobal, 1);
-    newList.splice(targetGlobalIndex, 0, moved);
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     
-    onUpdateRoster(newList);
+    // Tentar descobrir quem foi o último do mês anterior para manter a ordem
+    let startIndex = 0;
+    const prevMonth = viewMonth === 0 ? 11 : viewMonth - 1;
+    const prevYear = viewMonth === 0 ? viewYear - 1 : viewYear;
+    const prevDoc = await getDoc(doc(db, "maintenance", `maintenance_${prevMonth}_${prevYear}`));
+    
+    if (prevDoc.exists()) {
+      const lastDayMemberId = prevDoc.data().daily.slice(-1)[0]?.memberId;
+      const lastIdx = activeRotationMembers.findIndex(m => m.id === lastDayMemberId);
+      if (lastIdx !== -1) startIndex = (lastIdx + 1) % activeRotationMembers.length;
+    }
+
+    const newDaily = Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
+      const dateObj = new Date(viewYear, viewMonth, day);
+      const mIdx = (startIndex + i) % activeRotationMembers.length;
+      const m = activeRotationMembers[mIdx];
+      return {
+        day,
+        date: `${day.toString().padStart(2, '0')}/${(viewMonth + 1).toString().padStart(2, '0')}/${viewYear}`,
+        weekday: weekdays[dateObj.getDay()],
+        memberId: m.id,
+        memberName: m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`
+      };
+    });
+
+    try {
+      await setDoc(doc(db, "maintenance", checklistDocId), { 
+        daily: newDaily,
+        month: monthsList[viewMonth],
+        year: viewYear
+      });
+    } catch (e) { console.error(e); }
+    setLoading(false);
   };
 
-  const handleTableDragStart = (globalIndex: number) => {
-    if (globalIndex === -1) return;
-    setDraggedMemberIndex(globalIndex);
+  const todayDuty = useMemo(() => {
+    const now = new Date();
+    if (now.getMonth() === viewMonth && now.getFullYear() === viewYear) {
+      const dayData = checklistData.find(d => d.day === now.getDate());
+      return dayData?.memberId ? dayData.memberName : "VAGO";
+    }
+    return "NAVEGANDO NO ARQUIVO";
+  }, [checklistData, viewMonth, viewYear]);
+
+  // AÇÕES INDIVIDUAIS NA TABELA
+  const handleDayMemberChange = async (dayIndex: number, newMemberId: string | null) => {
+    if (!isAdmin) return;
+    const newData = [...checklistData];
+    const member = members.find(m => m.id === newMemberId);
+    
+    newData[dayIndex] = {
+      ...newData[dayIndex],
+      memberId: newMemberId,
+      memberName: member ? (member.role === Role.PROSPERO ? `PRÓSPERO ${member.name}` : `${member.cumbraId} ${member.name}`) : "VAGO"
+    };
+
+    setChecklistData(newData);
+    try {
+      await setDoc(doc(db, "maintenance", checklistDocId), { daily: newData }, { merge: true });
+    } catch (e) { console.error(e); }
   };
 
-  const handleTableDrop = (targetGlobalIndex: number) => {
-    if (draggedMemberIndex === null || targetGlobalIndex === -1 || draggedMemberIndex === targetGlobalIndex) return;
-    const newList = [...members];
-    const [moved] = newList.splice(draggedMemberIndex, 1);
-    newList.splice(targetGlobalIndex, 0, moved);
-    onUpdateRoster(newList);
-    setDraggedMemberIndex(null);
+  const toggleDayOff = (dayIndex: number) => {
+    const isOff = checklistData[dayIndex].memberId === null;
+    handleDayMemberChange(dayIndex, isOff ? members[0].id : null);
   };
 
-  const toggleMemberRosterStatus = (memberId: string) => {
-    const newList = members.map(m => m.id === memberId ? { ...m, rosterActive: m.rosterActive === false ? true : false } : m);
-    onUpdateRoster(newList);
+  // DRAG & DROP NA TABELA (SWAP DE MEMBROS)
+  const handleRowDragStart = (idx: number) => setDraggedRowIndex(idx);
+  const handleRowDrop = async (targetIdx: number) => {
+    if (draggedRowIndex === null || draggedRowIndex === targetIdx) return;
+    const newData = [...checklistData];
+    
+    const tempId = newData[draggedRowIndex].memberId;
+    const tempName = newData[draggedRowIndex].memberName;
+    
+    newData[draggedRowIndex].memberId = newData[targetIdx].memberId;
+    newData[draggedRowIndex].memberName = newData[targetIdx].memberName;
+    
+    newData[targetIdx].memberId = tempId;
+    newData[targetIdx].memberName = tempName;
+
+    setChecklistData(newData);
+    setDraggedRowIndex(null);
+    try {
+      await setDoc(doc(db, "maintenance", checklistDocId), { daily: newData }, { merge: true });
+    } catch (e) { console.error(e); }
   };
 
-  const addNewMemberToRoster = () => {
+  // ADICIONAR NOVO AO SISTEMA
+  const addNewMemberToSystem = () => {
     if (!newMemberName.trim()) return;
     const newMember: Member = {
       id: `custom_${Date.now()}`,
@@ -208,36 +255,9 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     setShowAddMember(false);
   };
 
-  const updateMemberName = () => {
-    if (!editingMember || !newMemberName.trim()) return;
-    const newList = members.map(m => m.id === editingMember.id ? { 
-      ...m, 
-      name: newMemberName.toUpperCase(),
-      cumbraId: newMemberId.trim() || m.cumbraId
-    } : m);
-    onUpdateRoster(newList);
-    setEditingMember(null);
-    setNewMemberName('');
-    setNewMemberId('');
-  };
-
   const handleUpdateSlot = async (id: string, field: keyof DispositivoSlot, value: any) => {
     const newSlots = { ...slots, [id]: { ...slots[id], [field]: value } };
     setSlots(newSlots);
-    try {
-      await setDoc(doc(db, "dashboard", "slots"), newSlots);
-    } catch (e) { console.error(e); }
-  };
-
-  const handleSlotDragStart = (id: string) => setDraggedSlotId(id);
-  const handleSlotDrop = async (targetId: string) => {
-    if (!draggedSlotId || draggedSlotId === targetId) return;
-    const newSlots = { ...slots };
-    const temp = { ...newSlots[draggedSlotId] };
-    newSlots[draggedSlotId] = { ...newSlots[targetId], id: draggedSlotId };
-    newSlots[targetId] = { ...temp, id: targetId };
-    setSlots(newSlots);
-    setDraggedSlotId(null);
     try {
       await setDoc(doc(db, "dashboard", "slots"), newSlots);
     } catch (e) { console.error(e); }
@@ -266,7 +286,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-40">
       <div className="w-12 h-12 border-4 border-mc-red border-t-transparent animate-spin mb-4"></div>
-      <span className="font-mono text-xs font-black uppercase tracking-widest">Sincronizando...</span>
+      <span className="font-mono text-xs font-black uppercase tracking-widest">Sincronizando Banco...</span>
     </div>
   );
 
@@ -338,12 +358,28 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         <div ref={dispositivoRef} className="max-w-5xl mx-auto bg-black border-4 border-white p-4 md:p-10 shadow-brutal-red relative">
             <div className="grid grid-cols-3 gap-2 mb-4">
               <div className="invisible"></div>
-              {slots['T1'] && <SlotBox slot={slots['T1']} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />}
+              {slots['T1'] && <SlotBox slot={slots['T1']} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={(id) => setDraggedSlotId(id)} onDrop={(id) => {
+                if (!draggedSlotId || draggedSlotId === id) return;
+                const newSlots = {...slots};
+                const temp = {...newSlots[draggedSlotId]};
+                newSlots[draggedSlotId] = {...newSlots[id], id: draggedSlotId};
+                newSlots[id] = {...temp, id};
+                setSlots(newSlots);
+                setDoc(doc(db, "dashboard", "slots"), newSlots);
+              }} />}
               <div className="invisible"></div>
             </div>
             <div className="grid grid-cols-3 gap-4 items-stretch">
               <div className="flex flex-col gap-2">
-                {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />)}
+                {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={(id) => setDraggedSlotId(id)} onDrop={(id) => {
+                if (!draggedSlotId || draggedSlotId === id) return;
+                const newSlots = {...slots};
+                const temp = {...newSlots[draggedSlotId]};
+                newSlots[draggedSlotId] = {...newSlots[id], id: draggedSlotId};
+                newSlots[id] = {...temp, id};
+                setSlots(newSlots);
+                setDoc(doc(db, "dashboard", "slots"), newSlots);
+              }} />)}
               </div>
               <div className="bg-mc-gray border-4 border-mc-red flex flex-col items-center justify-center min-h-[150px] md:min-h-[350px] relative overflow-hidden">
                 <div className="z-20 p-2 transform -rotate-90 flex flex-col items-center justify-center text-center">
@@ -353,12 +389,28 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />)}
+                {['R1', 'R2', 'R3', 'R4', 'R5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={(id) => setDraggedSlotId(id)} onDrop={(id) => {
+                if (!draggedSlotId || draggedSlotId === id) return;
+                const newSlots = {...slots};
+                const temp = {...newSlots[draggedSlotId]};
+                newSlots[draggedSlotId] = {...newSlots[id], id: draggedSlotId};
+                newSlots[id] = {...temp, id};
+                setSlots(newSlots);
+                setDoc(doc(db, "dashboard", "slots"), newSlots);
+              }} />)}
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 mt-4">
               <div className="invisible"></div>
-              {slots['B1'] && <SlotBox slot={slots['B1']} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleSlotDragStart} onDrop={handleSlotDrop} />}
+              {slots['B1'] && <SlotBox slot={slots['B1']} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={(id) => setDraggedSlotId(id)} onDrop={(id) => {
+                if (!draggedSlotId || draggedSlotId === id) return;
+                const newSlots = {...slots};
+                const temp = {...newSlots[draggedSlotId]};
+                newSlots[draggedSlotId] = {...newSlots[id], id: draggedSlotId};
+                newSlots[id] = {...temp, id};
+                setSlots(newSlots);
+                setDoc(doc(db, "dashboard", "slots"), newSlots);
+              }} />}
               <div className="invisible"></div>
             </div>
         </div>
@@ -380,16 +432,18 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                     <button onClick={() => navigateMonth(1)} className="text-mc-red hover:scale-125 transition-transform font-black text-xl">▶</button>
                 </div>
                 {isAdmin && (
-                    <button 
-                        onClick={() => setShowAddMember(true)}
-                        className="bg-mc-green border-2 border-black px-4 py-1.5 font-mono text-[10px] font-black uppercase shadow-brutal-green hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all"
-                    >
-                        + ADICIONAR AO RODÍZIO
+                  <div className="flex gap-2">
+                    <button onClick={generateChecklist} className="bg-mc-green border-2 border-black px-4 py-1.5 font-mono text-[10px] font-black uppercase shadow-brutal-green hover:bg-black hover:text-mc-green transition-all">
+                        {checklistData.length ? 'RECICLAR ESCALA' : 'GERAR ESCALA'}
                     </button>
+                    <button onClick={() => setShowAddMember(true)} className="bg-mc-yellow border-2 border-black px-4 py-1.5 font-mono text-[10px] font-black uppercase shadow-brutal-small hover:bg-black hover:text-mc-yellow transition-all">
+                        + NOVO MEMBRO
+                    </button>
+                  </div>
                 )}
              </div>
           </div>
-          <button onClick={() => exportAsImage(checklistRef, 'escala-mensal')} className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small mb-1">📸 EXPORTAR JPG</button>
+          <button onClick={() => exportAsImage(checklistRef, 'checklist-diario')} className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small mb-1">📸 EXPORTAR JPG</button>
         </div>
 
         <div ref={checklistRef} className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document overflow-hidden">
@@ -403,71 +457,64 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                       <tr className="bg-black text-white font-mono text-[10px] uppercase">
                          <th className="p-3 border-r border-white/10 w-24 text-center">DATA</th>
                          <th className="p-3 border-r border-white/10 w-32">DIA</th>
-                         <th className="p-3">CUMPADRE RESPONSÁVEL (ARRASTE OU MUDE O NOME)</th>
+                         <th className="p-3">CUMPADRE RESPONSÁVEL (ORDEM JAKÃO → PERVERSO)</th>
                          {isAdmin && <th className="p-3 text-right">AÇÕES</th>}
                       </tr>
                    </thead>
                    <tbody>
-                      {currentScaleData.map((row: any, idx: number) => (
-                         <tr 
-                            key={`${viewYear}-${viewMonth}-${row.day}`}
-                            draggable={isAdmin}
-                            onDragStart={() => handleTableDragStart(row.globalIndex)}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={() => handleTableDrop(row.globalIndex)}
-                            className={`border-b border-black/5 group transition-colors ${
-                                row.date.split('/')[0] === new Date().getDate().toString().padStart(2, '0') && viewMonth === new Date().getMonth() 
-                                ? 'bg-mc-yellow/40' 
-                                : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                            }`}
-                         >
-                            <td className="p-3 text-center font-mono text-[12px] md:text-sm text-black border-r border-black/5 font-bold">{row.date}</td>
-                            <td className="p-3 font-mono text-[10px] text-black border-r border-black/5 font-black uppercase opacity-60">{row.weekday}</td>
-                            <td className="p-3 font-mono font-black text-[14px] md:text-lg uppercase flex items-center gap-3">
-                               <span className="opacity-20 group-hover:opacity-100 transition-opacity">⠿</span>
-                               <select 
-                                 disabled={!isAdmin}
-                                 className="bg-transparent border-none font-mono font-black uppercase outline-none focus:bg-mc-yellow appearance-none cursor-pointer p-1 rounded"
-                                 value={row.memberId || ''}
-                                 onChange={(e) => handleDropdownChange(row.globalIndex, e.target.value)}
-                               >
-                                 <option value="" disabled>SELECIONE</option>
-                                 {members.map(m => (
-                                   <option key={m.id} value={m.id}>
-                                     {m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`}
-                                   </option>
-                                 ))}
-                               </select>
-                            </td>
-                            {isAdmin && (
-                                <td className="p-3 text-right">
-                                    <div className="flex justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button 
-                                            onClick={() => {
-                                                const member = members.find(m => m.id === row.memberId);
-                                                if (member) {
-                                                    setEditingMember(member);
-                                                    setNewMemberName(member.name);
-                                                    setNewMemberId(member.cumbraId);
-                                                }
-                                            }}
-                                            className="bg-mc-yellow border-2 border-black p-1 text-[10px] shadow-[1px_1px_0px_#000]"
-                                        >
-                                            ✎
-                                        </button>
-                                        <button 
-                                            onClick={() => row.memberId && toggleMemberRosterStatus(row.memberId)}
-                                            className={`border-2 border-black p-1 text-[10px] shadow-[1px_1px_0px_#000] ${
-                                                members.find(m => m.id === row.memberId)?.rosterActive !== false ? 'bg-mc-red text-white' : 'bg-mc-green'
-                                            }`}
-                                        >
-                                            {members.find(m => m.id === row.memberId)?.rosterActive !== false ? 'OFF' : 'ON'}
-                                        </button>
-                                    </div>
-                                </td>
-                            )}
-                         </tr>
-                      ))}
+                      {checklistData.length === 0 ? (
+                        <tr>
+                          <td colSpan={isAdmin ? 4 : 3} className="p-20 text-center font-mono text-xs font-black uppercase opacity-20">Aguardando geração da escala...</td>
+                        </tr>
+                      ) : (
+                        checklistData.map((row, idx) => (
+                           <tr 
+                              key={`${checklistDocId}-${row.day}`}
+                              draggable={isAdmin}
+                              onDragStart={() => handleRowDragStart(idx)}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => handleRowDrop(idx)}
+                              className={`border-b border-black/5 group cursor-move transition-colors ${
+                                  row.day === new Date().getDate() && viewMonth === new Date().getMonth() && viewYear === new Date().getFullYear()
+                                  ? 'bg-mc-yellow/40' 
+                                  : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                              }`}
+                           >
+                              <td className="p-3 text-center font-mono text-[12px] md:text-sm text-black border-r border-black/5 font-bold">{row.date}</td>
+                              <td className="p-3 font-mono text-[10px] text-black border-r border-black/5 font-black uppercase opacity-60">{row.weekday}</td>
+                              <td className="p-3 font-mono font-black text-[14px] md:text-lg uppercase flex items-center gap-3">
+                                 <span className="opacity-20 group-hover:opacity-100 transition-opacity">⠿</span>
+                                 <select 
+                                   disabled={!isAdmin}
+                                   className={`bg-transparent border-none font-mono font-black uppercase outline-none focus:bg-mc-yellow appearance-none cursor-pointer p-1 rounded ${!row.memberId ? 'text-mc-red opacity-50' : 'text-black'}`}
+                                   value={row.memberId || ''}
+                                   onChange={(e) => handleDayMemberChange(idx, e.target.value || null)}
+                                 >
+                                   <option value="">VAGO</option>
+                                   {members.map(m => (
+                                     <option key={m.id} value={m.id}>
+                                       {m.role === Role.PROSPERO ? `PRÓSPERO ${m.name}` : `${m.cumbraId} ${m.name}`}
+                                     </option>
+                                   ))}
+                                 </select>
+                              </td>
+                              {isAdmin && (
+                                  <td className="p-3 text-right">
+                                      <div className="flex justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button 
+                                              onClick={() => toggleDayOff(idx)}
+                                              className={`border-2 border-black p-1 px-2 text-[10px] font-black shadow-[1px_1px_0px_#000] ${
+                                                  row.memberId ? 'bg-mc-red text-white' : 'bg-mc-green text-black'
+                                              }`}
+                                          >
+                                              {row.memberId ? 'OFF' : 'ON'}
+                                          </button>
+                                      </div>
+                                  </td>
+                              )}
+                           </tr>
+                        ))
+                      )}
                    </tbody>
                 </table>
              </div>
@@ -492,7 +539,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
               </div>
               <div className="flex gap-2 pt-4">
                 <button 
-                    onClick={editingMember ? updateMemberName : addNewMemberToRoster} 
+                    onClick={addNewMemberToSystem} 
                     className="flex-1 bg-mc-red text-white font-display text-2xl py-2 border-2 border-black shadow-brutal-small active:shadow-none active:translate-x-1 active:translate-y-1"
                 >
                     {editingMember ? 'ATUALIZAR' : 'ADICIONAR'}
