@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Role } from '../types';
 
 interface LayoutProps {
@@ -22,7 +22,22 @@ const Layout: React.FC<LayoutProps> = ({
   userPhoto
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [brasiliaTime, setBrasiliaTime] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('pt-BR', { 
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      setBrasiliaTime(timeStr);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: 'PÁGINA INICIAL', icon: '01', smIcon: '🏠' },
@@ -30,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'members', label: 'EFETIVO', icon: '03', smIcon: '🏍️' },
     { id: 'announcements', label: 'INFORMES', icon: '04', smIcon: '📢' },
     { id: 'payments', label: 'TESOURARIA', icon: '05', smIcon: '💰' },
-    { id: 'checklists', label: 'CHECKLISTS', icon: '06', smIcon: '📋' },
+    { id: 'checklists', label: 'GERENCIAR ESCALAS', icon: '06', smIcon: '📋' },
     { id: 'calendar', label: 'AGENDA', icon: '07', smIcon: '📅' },
     { id: 'archive', label: 'ACERVO', icon: '08', smIcon: '📁' },
   ];
@@ -60,9 +75,9 @@ const Layout: React.FC<LayoutProps> = ({
               {userPhoto ? <img src={userPhoto} alt="User" className="w-full h-full object-cover" /> : <span className="text-black font-black">CB</span>}
             </div>
           </div>
-          <div className="flex flex-col overflow-hidden max-w-[200px] sm:max-w-none">
-            <span className="font-display text-[14px] sm:text-[28px] md:text-[34px] text-white leading-none tracking-widest uppercase truncate">
-              CUMPADRES DO BRASIL - <span className="text-mc-red">COMANDO</span>
+          <div className="flex flex-col">
+            <span className="font-display text-2xl md:text-4xl text-white leading-none tracking-[0.2em] uppercase truncate">
+              COMANDO CENTRAL
             </span>
           </div>
         </div>
@@ -124,6 +139,19 @@ const Layout: React.FC<LayoutProps> = ({
       <main className="flex-1 mt-16 pb-24 px-4 pt-6 md:px-12 max-w-6xl mx-auto w-full">
         {children}
       </main>
+
+      <footer className="bg-black border-t-4 border-mc-red p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-2">
+           <div className="w-2 h-2 bg-mc-green rounded-full animate-pulse"></div>
+           <span className="text-white font-mono text-[10px] uppercase font-black tracking-widest">SERVER CLOUD ATIVO</span>
+        </div>
+        <div className="bg-mc-red px-4 py-1 border-2 border-white shadow-brutal-white">
+           <span className="text-white font-mono text-xs font-black">HORÁRIO BRASÍLIA: {brasiliaTime}</span>
+        </div>
+        <div className="text-gray-600 font-mono text-[10px] uppercase">
+          CBMC ADMIN v4.5.0
+        </div>
+      </footer>
     </div>
   );
 };
