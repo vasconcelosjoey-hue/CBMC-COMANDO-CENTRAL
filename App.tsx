@@ -47,7 +47,7 @@ const App: React.FC = () => {
         return numA - numB;
       }
 
-      // Ordem interna para Efetivos (10, 11, 12, 15, 16, 17, 20, 22, 24, 25)
+      // Ordem interna para Efetivos (10, 11, 12, 15, 16, 17, 20, 23, 24, 25)
       if (pA === 2) {
         return parseInt(a.cumbraId) - parseInt(b.cumbraId);
       }
@@ -134,7 +134,7 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard heroImage={heroImage} onUpdateHero={handleUpdateHero} userRole={currentUser.role} onBack={handleLogout} />;
+      case 'dashboard': return <Dashboard members={members} heroImage={heroImage} onUpdateHero={handleUpdateHero} userRole={currentUser.role} onBack={handleLogout} />;
       case 'presidency': return <Presidency userRole={currentUser.role} onBack={() => setActiveTab('dashboard')} onNavigateToAnnualChecklist={() => handleTabChange('annual-checklist')} />;
       case 'annual-checklist': return <AnnualChecklist members={members} userRole={currentUser.role} onBack={() => setActiveTab('presidency')} />;
       case 'announcements': return <Announcements userRole={currentUser.role} onBack={() => setActiveTab('dashboard')} />;
@@ -143,7 +143,7 @@ const App: React.FC = () => {
       case 'checklists': return <Checklists onBack={() => setActiveTab('dashboard')} />;
       case 'calendar': return <Calendar onBack={() => setActiveTab('dashboard')} />;
       case 'archive': return <Archive onBack={() => setActiveTab('dashboard')} />;
-      default: return <Dashboard heroImage={heroImage} onUpdateHero={handleUpdateHero} userRole={currentUser.role} onBack={handleLogout} />;
+      default: return <Dashboard members={members} heroImage={heroImage} onUpdateHero={handleUpdateHero} userRole={currentUser.role} onBack={handleLogout} />;
     }
   };
 

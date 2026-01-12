@@ -1,8 +1,7 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SectionTitle, BackButton } from '../components/UI.tsx';
-import { MOCK_EVENTS } from '../constants.ts';
-import { Role, ClubEvent } from '../types.ts';
+import { Role, Member } from '../types.ts';
 import { db } from '../firebase.ts';
 import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import * as htmlToImage from 'html-to-image';
@@ -16,6 +15,7 @@ interface DispositivoSlot {
 }
 
 interface DashboardProps {
+  members: Member[];
   heroImage: string | null;
   onUpdateHero: (url: string | null) => void;
   userRole: Role;
@@ -53,7 +53,7 @@ const SlotBox: React.FC<{
       onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
       onDragLeave={() => setIsDraggingOver(false)}
       onDrop={(e) => { e.preventDefault(); setIsDraggingOver(false); onDrop(slot.id); }}
-      className={`relative border-2 transition-all duration-200 flex flex-col justify-center min-h-[50px] md:min-h-[80px] p-1 md:p-2 text-center shadow-brutal-small group cursor-move ${
+      className={`relative border-2 transition-all duration-200 flex flex-col justify-center min-h-[55px] md:min-h-[85px] p-1 md:p-2 text-center shadow-brutal-small group cursor-move ${
         isDraggingOver ? 'bg-mc-yellow scale-105 z-50' : 
         !slot.active ? 'bg-zinc-200 border-dashed border-zinc-400 opacity-20' : 
         slot.color === 'red' ? 'bg-mc-red text-white border-white' : 'bg-white text-black border-black'
@@ -69,11 +69,11 @@ const SlotBox: React.FC<{
           </button>
         </div>
       )}
-      <span className="text-[7px] sm:text-[9px] md:text-[14px] font-black font-mono leading-none truncate uppercase tracking-tighter">
+      <span className="text-[10px] sm:text-[12px] md:text-[18px] font-black font-mono leading-none truncate uppercase tracking-tighter">
         {slot.active ? slot.label : 'VAGO'}
       </span>
       {slot.active && slot.sublabel && (
-        <span className="text-[5px] sm:text-[7px] md:text-[9px] font-bold font-mono leading-none mt-0.5 md:mt-1 opacity-70 truncate uppercase tracking-tighter">
+        <span className="text-[7px] sm:text-[9px] md:text-[12px] font-bold font-mono leading-none mt-1 opacity-70 truncate uppercase tracking-tighter">
           {slot.sublabel}
         </span>
       )}
@@ -81,13 +81,12 @@ const SlotBox: React.FC<{
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole, onBack }) => {
+const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero, userRole, onBack }) => {
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [slots, setSlots] = useState<Record<string, DispositivoSlot>>(DEFAULT_SLOTS_DATA);
   const [loading, setLoading] = useState(true);
-  const [todayDuty, setTodayDuty] = useState<string>("CONSULTANDO...");
-  const [monthlyData, setMonthlyData] = useState<any[]>([]);
-  const [currentMonthStr, setCurrentMonthStr] = useState("");
+  const [viewMonth, setViewMonth] = useState(new Date().getMonth());
+  const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,34 +95,54 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
   
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
 
+  const monthsList = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
+  const weekdays = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
+
+  // LOGICA DE ESCALA INTELIGENTE (RESPONSIVA)
+  const getMemberForDate = (day: number, month: number, year: number) => {
+    if (!members.length) return "CARREGANDO...";
+    
+    // Epoch: 01/01/2026 -> Johnny (Index 0)
+    const epoch = new Date(2026, 0, 1);
+    const target = new Date(year, month, day);
+    
+    const diffTime = target.getTime() - epoch.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Ajuste para dias negativos (antes de 2026) se necessário
+    const rosterSize = members.length;
+    const index = ((diffDays % rosterSize) + rosterSize) % rosterSize;
+    
+    const m = members[index];
+    if (m.role === Role.PROSPERO) return `PRÓSPERO ${m.name}`;
+    return `${m.cumbraId} ${m.name}`;
+  };
+
+  const currentScaleData = useMemo(() => {
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
+      const dateObj = new Date(viewYear, viewMonth, day);
+      return {
+        date: `${day.toString().padStart(2, '0')}/${(viewMonth + 1).toString().padStart(2, '0')}/${viewYear}`,
+        weekday: weekdays[dateObj.getDay()],
+        member: getMemberForDate(day, viewMonth, viewYear)
+      };
+    });
+  }, [viewMonth, viewYear, members]);
+
+  const todayDuty = useMemo(() => {
+    const now = new Date();
+    return getMemberForDate(now.getDate(), now.getMonth(), now.getFullYear());
+  }, [members]);
+
   useEffect(() => {
     const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), (docSnap) => {
       if (docSnap.exists()) setSlots(docSnap.data() as Record<string, DispositivoSlot>);
       else setDoc(doc(db, "dashboard", "slots"), DEFAULT_SLOTS_DATA);
       setLoading(false);
     });
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const months = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
-    setCurrentMonthStr(`${months[currentMonth]} / ${currentYear}`);
-
-    const currentDayStr = `${now.getDate().toString().padStart(2, '0')}/${(currentMonth + 1).toString().padStart(2, '0')}/${currentYear}`;
-    
-    const unsubMaintenance = onSnapshot(doc(db, "maintenance", `maintenance_${currentMonth}_${currentYear}`), (docSnap) => {
-      if (docSnap.exists()) {
-        const daily = docSnap.data().daily || [];
-        setMonthlyData(daily);
-        const entry = daily.find((d: any) => d.date === currentDayStr);
-        setTodayDuty(entry ? entry.member : "NÃO DEFINIDO");
-      } else {
-        setTodayDuty("ESCALA NÃO GERADA");
-        setMonthlyData([]);
-      }
-    });
-
-    return () => { unsubSlots(); unsubMaintenance(); };
+    return () => unsubSlots();
   }, []);
 
   const handleUpdateSlot = async (id: string, field: keyof DispositivoSlot, value: any) => {
@@ -167,6 +186,15 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
         link.href = dataUrl;
         link.click();
       });
+  };
+
+  const navigateMonth = (direction: number) => {
+    let nextMonth = viewMonth + direction;
+    let nextYear = viewYear;
+    if (nextMonth < 0) { nextMonth = 11; nextYear--; }
+    if (nextMonth > 11) { nextMonth = 0; nextYear++; }
+    setViewMonth(nextMonth);
+    setViewYear(nextYear);
   };
 
   if (loading) return (
@@ -255,11 +283,11 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
               <div className="flex flex-col gap-2">
                 {['L1', 'L2', 'L3', 'L4', 'L5'].map(id => slots[id] && <SlotBox key={id} slot={slots[id]} onEdit={setEditingSlotId} isAdmin={isAdmin} onDragStart={handleDragStart} onDrop={handleDrop} />)}
               </div>
-              <div className="bg-mc-gray border-4 border-mc-red flex flex-col items-center justify-center min-h-[150px] md:min-h-[300px] relative overflow-hidden">
-                <div className="text-center z-20 p-2">
-                  <span className="text-mc-red font-display text-7xl md:text-[12vw] block leading-none font-black tracking-tighter drop-shadow-[6px_6px_0px_rgba(255,255,255,1)]">CBMC</span>
-                  <div className="h-1 bg-mc-red w-full my-2 md:my-4"></div>
-                  <span className="text-white font-mono text-[10px] md:text-sm uppercase font-black tracking-[0.4em] opacity-80">MESA DE COMANDO</span>
+              <div className="bg-mc-gray border-4 border-mc-red flex flex-col items-center justify-center min-h-[150px] md:min-h-[350px] relative overflow-hidden">
+                <div className="z-20 p-2 transform -rotate-90 flex flex-col items-center justify-center">
+                  <span className="text-mc-red font-display text-5xl md:text-[6vw] block leading-none font-black tracking-tighter drop-shadow-[4px_4px_0px_rgba(255,255,255,1)]">CBMC</span>
+                  <div className="h-1 bg-mc-red w-32 md:w-56 my-2 md:my-4"></div>
+                  <span className="text-white font-mono text-[9px] md:text-xs uppercase font-black tracking-[0.4em] opacity-80 whitespace-nowrap">MESA DE COMANDO</span>
                 </div>
                 {/* Visual accents for the table */}
                 <div className="absolute inset-0 border-[10px] border-black opacity-20 pointer-events-none"></div>
@@ -278,23 +306,33 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
         </div>
       </div>
 
-      {/* ESCALA COMPLETA */}
+      {/* ESCALA COMPLETA COM NAVEGAÇÃO */}
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <SectionTitle title="ESCALA COMPLETA" subtitle={`Monitoramento Mensal - ${currentMonthStr}`} />
+          <div className="flex flex-col items-center md:items-start">
+             <div className="bg-mc-red border-4 border-black px-8 py-3 mb-2 shadow-brutal-red">
+                <h2 className="text-4xl font-display text-black uppercase tracking-widest leading-none">ESCALA COMPLETA</h2>
+             </div>
+             <div className="bg-white border-2 border-black px-4 py-1 flex items-center gap-4">
+                <button onClick={() => navigateMonth(-1)} className="text-mc-red hover:scale-125 transition-transform font-black text-xl">◀</button>
+                <span className="text-black font-mono font-black text-xs uppercase tracking-[0.3em] min-w-[150px] text-center">
+                    {monthsList[viewMonth]} / {viewYear}
+                </span>
+                <button onClick={() => navigateMonth(1)} className="text-mc-red hover:scale-125 transition-transform font-black text-xl">▶</button>
+             </div>
+          </div>
           <button 
             onClick={() => exportAsImage(checklistRef, 'escala-mensal')}
-            className="bg-black text-white font-mono text-[10px] font-black p-3 border-2 border-mc-red shadow-brutal-small hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+            className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center gap-2"
           >
             📸 EXPORTAR ESCALA JPG
           </button>
         </div>
 
-        {monthlyData.length > 0 ? (
-          <div ref={checklistRef} className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document overflow-hidden">
+        <div ref={checklistRef} className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document overflow-hidden">
              <div className="bg-mc-red text-white p-4 flex justify-between items-center border-b-4 border-black">
                 <span className="font-display text-2xl tracking-widest uppercase">ESCALA MENSAL OFICIAL</span>
-                <span className="font-mono text-xs font-black uppercase">{currentMonthStr}</span>
+                <span className="font-mono text-xs font-black uppercase">{monthsList[viewMonth]} / {viewYear}</span>
              </div>
              <div className="w-full overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -306,22 +344,17 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
                       </tr>
                    </thead>
                    <tbody>
-                      {monthlyData.map((row: any, idx: number) => (
-                         <tr key={idx} className={`border-b border-black/5 ${row.date.split('/')[0] === new Date().getDate().toString().padStart(2, '0') ? 'bg-mc-yellow/40' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                      {currentScaleData.map((row: any, idx: number) => (
+                         <tr key={idx} className={`border-b border-black/5 ${row.date.split('/')[0] === new Date().getDate().toString().padStart(2, '0') && viewMonth === new Date().getMonth() ? 'bg-mc-yellow/40' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                             <td className="p-3 text-center font-mono text-xs text-black border-r border-black/5 font-bold">{row.date}</td>
                             <td className="p-3 font-mono text-[10px] text-black border-r border-black/5 font-black uppercase opacity-60">{row.weekday}</td>
-                            <td className="p-3 font-mono font-black text-xs md:text-sm uppercase">{row.member}</td>
+                            <td className="p-3 font-mono font-black text-sm md:text-base uppercase">{row.member}</td>
                          </tr>
                       ))}
                    </tbody>
                 </table>
              </div>
           </div>
-        ) : (
-          <div className="p-20 border-4 border-dashed border-black/10 text-center bg-white/50">
-             <span className="font-mono text-xs font-black uppercase opacity-40 italic tracking-widest">NENHUMA ESCALA GERADA PARA ESTE PERÍODO</span>
-          </div>
-        )}
       </div>
 
       {editingSlotId && (
