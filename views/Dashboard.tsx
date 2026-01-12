@@ -168,7 +168,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
               className={`w-40 h-40 sm:w-56 sm:h-56 md:w-72 md:h-72 bg-black border-4 border-white shadow-brutal-red overflow-hidden relative group ${isAdmin ? 'cursor-pointer' : ''}`}
             >
               {heroImage ? (
-                <img src={heroImage} alt="Destaque CBMC" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                <img src={heroImage} alt="Destaque CBMC" className="w-full h-full object-contain transition-all duration-500" />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center border-2 border-dashed border-mc-red/30">
                    <span className="text-mc-red text-4xl md:text-6xl mb-2 md:mb-4">⇪</span>
@@ -258,7 +258,7 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
 
               <div className="bg-mc-gray border-2 md:border-4 border-mc-red relative group/center overflow-hidden flex items-center justify-center min-h-[120px] md:min-h-[250px]">
                 {centerTableImage ? (
-                  <img src={centerTableImage} className="w-full h-full object-cover grayscale opacity-50 group-hover/center:opacity-100 transition-opacity" />
+                  <img src={centerTableImage} className="w-full h-full object-contain opacity-70 group-hover/center:opacity-100 transition-opacity" />
                 ) : (
                   <div className="flex flex-col items-center opacity-10">
                     <img src="https://static.wixstatic.com/media/893a7d_8c3093952d4b4a15998df6718d7486e8~mv2.png/v1/fill/w_400,h_400,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/LOGO%20CBMC.png" className="w-16 md:w-32 invert" />

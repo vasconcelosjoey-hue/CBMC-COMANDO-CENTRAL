@@ -57,7 +57,7 @@ const Layout: React.FC<LayoutProps> = ({
               onClick={() => fileInputRef.current?.click()}
               className="relative w-12 h-12 bg-white border-2 border-black flex items-center justify-center text-black font-display text-2xl overflow-hidden cursor-pointer hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all z-10"
             >
-              {userPhoto ? <img src={userPhoto} alt="User" className="w-full h-full object-cover grayscale" /> : <span className="text-black font-black">CB</span>}
+              {userPhoto ? <img src={userPhoto} alt="User" className="w-full h-full object-cover" /> : <span className="text-black font-black">CB</span>}
             </div>
           </div>
           <div className="flex flex-col overflow-hidden max-w-[200px] sm:max-w-none">

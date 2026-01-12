@@ -50,8 +50,12 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
                 onClick={() => setSelectedMemberId(member.id)}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 flex items-center justify-center bg-black text-white font-mono font-black text-[10px] border-2 border-mc-red">
-                    {member.cumbraId}
+                  <div className="w-10 h-10 flex items-center justify-center bg-black text-white font-mono font-black text-[10px] border-2 border-mc-red overflow-hidden">
+                    {member.photoUrl ? (
+                      <img src={member.photoUrl} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      member.cumbraId
+                    )}
                   </div>
                   <div className="flex-1">
                     <h4 className="font-display text-3xl text-white group-hover:text-black leading-none">{member.name}</h4>
@@ -74,7 +78,7 @@ const Members: React.FC<MembersProps> = ({ userRole, currentUserId, members, onU
               <div className="p-6 bg-black flex flex-col items-center border-b-4 md:border-b-0 md:border-r-4 border-mc-red">
                 <div className="relative group mb-4">
                   <div className="w-40 h-40 border-4 border-mc-red overflow-hidden bg-mc-gray shadow-brutal-red">
-                    <img src={selectedMember?.photoUrl} className="w-full h-full object-cover grayscale" />
+                    <img src={selectedMember?.photoUrl} className="w-full h-full object-cover" />
                   </div>
                   {selectedMember?.id === currentUserId && (
                     <button 
