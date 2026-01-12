@@ -13,57 +13,60 @@ import Checklists from './views/Checklists.tsx';
 import Presidency from './views/Presidency.tsx';
 import AnnualChecklist from './views/AnnualChecklist.tsx';
 import LoginView from './views/LoginView.tsx';
-
-const STORAGE_KEYS = {
-  MEMBERS: 'cbmc_members_data_v1',
-  AUTH: 'cbmc_authenticated_areas_v1',
-  HERO: 'cbmc_hero_image_v1'
-};
+import { db } from './firebase.ts';
+import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const App: React.FC = () => {
-  const [members, setMembers] = useState<Member[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-      return saved ? JSON.parse(saved) : MOCK_MEMBERS;
-    } catch {
-      return MOCK_MEMBERS;
-    }
-  });
-
-  const [heroImage, setHeroImage] = useState<string | null>(() => {
-    return localStorage.getItem(STORAGE_KEYS.HERO);
-  });
-
-  const [currentUser, setCurrentUser] = useState<Member>(members[2]);
+  const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
+  const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<Member>(MOCK_MEMBERS[2]);
   const [activeTab, setActiveTab] = useState('dashboard');
-  
-  const [authenticatedAreas, setAuthenticatedAreas] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.AUTH);
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-  
+  const [authenticatedAreas, setAuthenticatedAreas] = useState<Set<string>>(new Set());
   const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  // LISTENER REAL-TIME PARA MEMBROS (SINCRONIZA FOTOS DE PERFIL)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(members));
-  }, [members]);
+    const unsub = onSnapshot(doc(db, "members_data", "current"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data().list || MOCK_MEMBERS;
+        setMembers(data);
+      } else {
+        // Inicializa o banco se estiver vazio
+        setDoc(doc(db, "members_data", "current"), { list: MOCK_MEMBERS });
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
+  // LISTENER REAL-TIME PARA IMAGENS DO DASHBOARD (BRASÃO/HERO)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(Array.from(authenticatedAreas)));
-  }, [authenticatedAreas]);
+    const unsub = onSnapshot(doc(db, "dashboard", "images"), (docSnap) => {
+      if (docSnap.exists()) {
+        setHeroImage(docSnap.data().hero || null);
+      }
+    });
+    return () => unsub();
+  }, []);
 
-  const handleUpdateHero = (url: string | null) => {
-    setHeroImage(url);
-    if (url) localStorage.setItem(STORAGE_KEYS.HERO, url);
-    else localStorage.removeItem(STORAGE_KEYS.HERO);
+  const handleUpdateHero = async (url: string | null) => {
+    try {
+      await setDoc(doc(db, "dashboard", "images"), { hero: url }, { merge: true });
+      // O onSnapshot acima atualizará o estado local automaticamente para todos
+    } catch (e) {
+      console.error("Erro ao atualizar Brasão na nuvem:", e);
+    }
   };
 
-  const handleUpdatePhoto = (memberId: string, newPhotoUrl: string) => {
-    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, photoUrl: newPhotoUrl } : m));
+  const handleUpdatePhoto = async (memberId: string, newPhotoUrl: string) => {
+    const updatedMembers = members.map(m => m.id === memberId ? { ...m, photoUrl: newPhotoUrl } : m);
+    try {
+      await setDoc(doc(db, "members_data", "current"), { list: updatedMembers });
+      // Todos os aparelhos receberão a nova lista via onSnapshot
+    } catch (e) {
+      console.error("Erro ao sincronizar foto de perfil:", e);
+    }
   };
 
   const handleTabChange = (tab: string) => {
@@ -85,8 +88,14 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setAuthenticatedAreas(new Set());
     setActiveTab('dashboard');
-    localStorage.removeItem(STORAGE_KEYS.AUTH);
   };
+
+  if (loading) return (
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center">
+      <div className="w-16 h-16 border-4 border-mc-red border-t-transparent animate-spin mb-4"></div>
+      <span className="font-mono text-mc-red font-black tracking-[0.3em] uppercase">Sincronizando Comando Central...</span>
+    </div>
+  );
 
   const renderContent = () => {
     switch (activeTab) {

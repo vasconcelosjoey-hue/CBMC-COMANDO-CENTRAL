@@ -70,11 +70,10 @@ const SlotBox: React.FC<{
 
 const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole, onBack }) => {
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
-  
   const [centerTableImage, setCenterTableImage] = useState<string | null>(null);
   const [slots, setSlots] = useState<Record<string, DispositivoSlot>>(DEFAULT_SLOTS);
   const [loading, setLoading] = useState(true);
-  const [dbStatus, setDbStatus] = useState<'online' | 'offline'>('online');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
 
@@ -84,13 +83,9 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
         if (docSnap.exists()) {
           setSlots(docSnap.data() as Record<string, DispositivoSlot>);
         }
-        setDbStatus('online');
         setLoading(false);
       },
-      (error) => {
-        setDbStatus('offline');
-        setLoading(false);
-      }
+      (error) => setLoading(false)
     );
 
     const unsubImages = onSnapshot(doc(db, "dashboard", "images"), 
@@ -98,10 +93,8 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
         if (docSnap.exists()) {
           const data = docSnap.data();
           setCenterTableImage(data.hub || null);
-          if (data.hero) onUpdateHero(data.hero);
         }
-      },
-      (error) => {} 
+      }
     );
 
     return () => { unsubSlots(); unsubImages(); };
@@ -113,28 +106,31 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
     try {
       await setDoc(doc(db, "dashboard", "slots"), newSlots);
     } catch (e) {
-      console.warn("Alteração salva apenas localmente (Erro Firebase).");
+      console.error("Erro Firebase Slots:", e);
+    }
+  };
+
+  const handleHeroFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onUpdateHero(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-40">
       <div className="w-12 h-12 border-4 border-mc-red border-t-transparent animate-spin mb-4"></div>
-      <span className="font-mono text-xs font-black uppercase tracking-widest">Sincronizando Comando...</span>
+      <span className="font-mono text-xs font-black uppercase tracking-widest">Acessando Comando...</span>
     </div>
   );
 
   return (
     <div className="space-y-10 md:space-y-16 pb-20">
       <BackButton onClick={onBack} label="SAIR DA SESSÃO" />
-
-      {/* STATUS INDICATOR */}
-      <div className="fixed bottom-4 right-4 z-[100]">
-        <div className={`flex items-center gap-2 px-3 py-1.5 border-2 border-black font-mono text-[9px] font-black uppercase tracking-widest shadow-brutal-small ${dbStatus === 'online' ? 'bg-mc-green' : 'bg-mc-yellow'}`}>
-           <div className={`w-2 h-2 rounded-full ${dbStatus === 'online' ? 'bg-black' : 'bg-mc-red animate-pulse'}`}></div>
-           {dbStatus === 'online' ? 'DATABASE LINKED' : 'LOCAL MODE (PERMISSION ERROR)'}
-        </div>
-      </div>
 
       {/* HERO SECTION */}
       <div className="relative bg-mc-red border-4 border-white shadow-brutal-white min-h-[300px] md:min-h-[450px] overflow-hidden flex items-center">
@@ -151,7 +147,11 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
             </div>
           </div>
           <div className="w-full md:w-1/3 flex justify-center order-1 md:order-2">
-            <div className={`w-40 h-40 md:w-72 md:h-72 bg-black border-4 border-white shadow-brutal-red overflow-hidden relative group ${isAdmin ? 'cursor-pointer' : ''}`}>
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleHeroFileChange} />
+            <div 
+              onClick={() => isAdmin && fileInputRef.current?.click()}
+              className={`w-40 h-40 md:w-72 md:h-72 bg-black border-4 border-white shadow-brutal-red overflow-hidden relative group ${isAdmin ? 'cursor-pointer' : ''}`}
+            >
               {heroImage ? (
                 <img src={heroImage} className="w-full h-full object-contain" />
               ) : (
@@ -160,6 +160,11 @@ const Dashboard: React.FC<DashboardProps> = ({ heroImage, onUpdateHero, userRole
                     <span className="text-mc-red text-4xl">⚓</span>
                   </div>
                   <span className="text-white font-mono text-[10px] uppercase opacity-20 tracking-widest">Brasão Oficial</span>
+                </div>
+              )}
+              {isAdmin && (
+                <div className="absolute inset-0 bg-mc-red/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border-4 border-white m-2">
+                  <span className="text-white font-mono font-black text-xs uppercase tracking-widest">Trocar Brasão</span>
                 </div>
               )}
             </div>
