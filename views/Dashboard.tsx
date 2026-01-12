@@ -22,6 +22,12 @@ interface ChecklistDay {
   memberName: string;
 }
 
+interface FixedChecklistRow {
+  period: string;
+  fixed: string;
+  pps: string;
+}
+
 interface DashboardProps {
   members: Member[];
   heroImage: string | null;
@@ -45,6 +51,13 @@ const DEFAULT_SLOTS_DATA: Record<string, DispositivoSlot> = {
   'R4': { id: 'R4', label: '23 JONAS', sublabel: 'MEMBRO', color: 'white', active: true },
   'R5': { id: 'R5', label: 'VAGO', sublabel: 'MEMBRO', color: 'white', active: false },
 };
+
+const DEFAULT_FIXED_CHECKLIST: FixedChecklistRow[] = [
+  { period: 'DIAS 1 A 7', fixed: 'BACON', pps: 'MOCO+JAKÃO' },
+  { period: 'DIAS 8 A 14', fixed: 'DRÁKULA', pps: 'MOCO+JAKÃO' },
+  { period: 'DIAS 15 A 21', fixed: 'MESTRE', pps: 'MOCO+JAKÃO' },
+  { period: 'DIAS 22 A 31', fixed: 'KATATAU', pps: 'MOCO+JAKÃO' },
+];
 
 const SlotBox: React.FC<{ 
   slot: DispositivoSlot; 
@@ -97,6 +110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const [viewMonth, setViewMonth] = useState(new Date().getMonth());
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [checklistData, setChecklistData] = useState<ChecklistDay[]>([]);
+  const [fixedChecklistData, setFixedChecklistData] = useState<FixedChecklistRow[]>(DEFAULT_FIXED_CHECKLIST);
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
@@ -107,6 +121,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dispositivoRef = useRef<HTMLDivElement>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
+  const fixedChecklistRef = useRef<HTMLDivElement>(null);
   
   const isAdmin = [Role.PRESIDENTE, Role.VICE_PRESIDENTE, Role.SECRETARIO, Role.SARGENTO_ARMAS].includes(userRole);
   const monthsList = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
@@ -127,6 +142,18 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     });
     return () => unsub();
   }, [checklistDocId]);
+
+  // CARREGAR CHECKLIST FIXO
+  useEffect(() => {
+    const unsubFixed = onSnapshot(doc(db, "maintenance", "fixed_roster"), (docSnap) => {
+      if (docSnap.exists()) {
+        setFixedChecklistData(docSnap.data().rows || DEFAULT_FIXED_CHECKLIST);
+      } else {
+        setDoc(doc(db, "maintenance", "fixed_roster"), { rows: DEFAULT_FIXED_CHECKLIST });
+      }
+    });
+    return () => unsubFixed();
+  }, []);
 
   useEffect(() => {
     const unsubSlots = onSnapshot(doc(db, "dashboard", "slots"), (docSnap) => {
@@ -195,6 +222,16 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
     setChecklistData(newData);
     try {
       await setDoc(doc(db, "maintenance", checklistDocId), { daily: newData }, { merge: true });
+    } catch (e) { console.error(e); }
+  };
+
+  const updateFixedChecklist = async (index: number, field: keyof FixedChecklistRow, value: string) => {
+    if (!isAdmin) return;
+    const newData = [...fixedChecklistData];
+    newData[index] = { ...newData[index], [field]: value.toUpperCase() };
+    setFixedChecklistData(newData);
+    try {
+      await setDoc(doc(db, "maintenance", "fixed_roster"), { rows: newData });
     } catch (e) { console.error(e); }
   };
 
@@ -283,21 +320,21 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
 
   return (
     <div className="space-y-10 md:space-y-20 pb-20">
-      {/* HERO SECTION */}
-      <div className="relative bg-mc-red border-4 border-white shadow-brutal-white min-h-[300px] md:min-h-[450px] overflow-hidden flex items-center">
+      {/* HERO SECTION COMPACTADO */}
+      <div className="relative bg-mc-red border-4 border-white shadow-brutal-white min-h-[220px] md:min-h-[300px] overflow-hidden flex items-center">
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-10 pointer-events-none select-none">
-           <span className="font-display text-[30vw] text-white leading-none">CBMC</span>
+           <span className="font-display text-[20vw] text-white leading-none">CBMC</span>
         </div>
-        <div className="relative z-20 w-full max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8 py-10">
+        <div className="relative z-20 w-full max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 py-4 md:py-6">
           <div className="text-center md:text-left flex-1 order-2 md:order-1">
-            <h1 className="text-3xl sm:text-5xl md:text-[6vw] font-display text-white leading-[0.9] uppercase tracking-tight drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+            <h1 className="text-2xl sm:text-4xl md:text-[5vw] font-display text-white leading-[0.9] uppercase tracking-tight drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">
               CUMPADRES<br/><span className="text-white">DO BRASIL</span>
             </h1>
-            <div className="mt-6 bg-black inline-block px-4 py-1 border-2 border-white shadow-brutal-red">
-               <span className="text-white font-mono text-[8px] md:text-xs font-black uppercase tracking-[0.4em]">COMANDO CENTRAL</span>
+            <div className="mt-3 md:mt-4 bg-black inline-block px-3 py-1 border-2 border-white shadow-brutal-red">
+               <span className="text-white font-mono text-[7px] md:text-xs font-black uppercase tracking-[0.4em]">COMANDO CENTRAL</span>
             </div>
           </div>
-          <div className="w-full md:w-1/3 flex justify-center order-1 md:order-2">
+          <div className="w-full md:w-auto flex justify-center order-1 md:order-2">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                const file = e.target.files?.[0];
                if (file) {
@@ -308,16 +345,16 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
             }} />
             <div 
               onClick={() => isAdmin && fileInputRef.current?.click()}
-              className={`w-40 h-40 md:w-72 md:h-72 bg-black border-4 border-white shadow-brutal-red overflow-hidden relative group ${isAdmin ? 'cursor-pointer' : ''}`}
+              className={`w-32 h-32 md:w-56 md:h-56 bg-black border-4 border-white shadow-brutal-red overflow-hidden relative group ${isAdmin ? 'cursor-pointer' : ''}`}
             >
               {heroImage ? (
                 <img src={heroImage} className="w-full h-full object-contain" />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-                  <div className="w-16 h-16 border-2 border-mc-red mb-2 flex items-center justify-center opacity-20">
-                    <span className="text-mc-red text-4xl">⚓</span>
+                  <div className="w-12 h-12 border-2 border-mc-red mb-2 flex items-center justify-center opacity-20">
+                    <span className="text-mc-red text-3xl">⚓</span>
                   </div>
-                  <span className="text-white font-mono text-[10px] uppercase opacity-20 tracking-widest">Brasão Oficial</span>
+                  <span className="text-white font-mono text-[8px] uppercase opacity-20 tracking-widest">Brasão Oficial</span>
                 </div>
               )}
             </div>
@@ -433,7 +470,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                       <tr className="bg-black text-white font-mono text-[10px] uppercase">
                          <th className="p-3 border-r border-white/10 w-24 text-center">DATA</th>
                          <th className="p-3 border-r border-white/10 w-32">DIA</th>
-                         <th className="p-3">CUMPADRE RESPONSÁVEL (ORDEM JAKÃO → PERVERSO)</th>
+                         <th className="p-3">CUMPADRE RESPONSÁVEL</th>
                          {isAdmin && <th className="p-3 text-right">AÇÕES</th>}
                       </tr>
                    </thead>
@@ -495,6 +532,60 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                 </table>
              </div>
           </div>
+      </div>
+
+      {/* CHECKLIST SEMANAL FIXO */}
+      <div className="space-y-6 mt-16 md:mt-24">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+          <div className="flex flex-col items-center md:items-start w-full md:w-auto">
+             <div className="bg-mc-red border-4 border-black px-8 py-3 mb-2 shadow-brutal-red w-full text-center md:text-left">
+                <h2 className="text-4xl font-display text-black uppercase tracking-widest leading-none">ESCALA FIXA</h2>
+             </div>
+          </div>
+          <button onClick={() => exportAsImage(fixedChecklistRef, 'checklist-fixo')} className="bg-black text-white font-mono text-[10px] font-black p-4 border-2 border-mc-red shadow-brutal-small mb-1">📸 EXPORTAR JPG</button>
+        </div>
+
+        <div ref={fixedChecklistRef} className="max-w-5xl mx-auto border-4 border-black bg-white shadow-document overflow-hidden">
+          <div className="bg-mc-red text-white p-5 text-center border-b-4 border-black">
+            <span className="font-display text-4xl md:text-5xl tracking-[0.1em] uppercase drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">ESCALA DE MANUTENÇÃO - FIXA</span>
+          </div>
+          <div className="w-full">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-black text-white font-mono text-[14px] uppercase border-b-2 border-white/20">
+                  <th className="p-4 border-r border-white/20 w-1/3 text-center tracking-widest">DIAS</th>
+                  <th className="p-4 border-r border-white/20 w-1/3 text-center tracking-widest">FIXO</th>
+                  <th className="p-4 w-1/3 text-center tracking-widest">PPs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fixedChecklistData.map((row, idx) => (
+                  <tr key={idx} className={`border-b-2 border-black group transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-zinc-50'}`}>
+                    <td className="p-5 text-center font-display text-3xl md:text-5xl text-black border-r-2 border-black font-black uppercase tracking-tighter">
+                      {row.period}
+                    </td>
+                    <td className="p-5 text-center border-r-2 border-black">
+                      <input 
+                        disabled={!isAdmin}
+                        className="w-full bg-transparent border-none text-center font-display text-3xl md:text-5xl text-black font-normal uppercase outline-none focus:bg-mc-yellow transition-colors"
+                        value={row.fixed}
+                        onChange={(e) => updateFixedChecklist(idx, 'fixed', e.target.value)}
+                      />
+                    </td>
+                    <td className="p-5 text-center">
+                      <input 
+                        disabled={!isAdmin}
+                        className="w-full bg-transparent border-none text-center font-display text-3xl md:text-5xl text-black font-normal uppercase outline-none focus:bg-mc-yellow transition-colors"
+                        value={row.pps}
+                        onChange={(e) => updateFixedChecklist(idx, 'pps', e.target.value)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* MODAL ADICIONAR/EDITAR MEMBRO */}
