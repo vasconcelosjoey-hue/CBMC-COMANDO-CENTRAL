@@ -762,7 +762,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         </div>
       </div>
 
-      {/* CALENDÁRIO ANUAL 2026 - NOVO PADRÃO GRID 3 COLUNAS */}
+      {/* CALENDÁRIO ANUAL 2026 - OTIMIZADO PARA LEGIBILIDADE */}
       <div className="space-y-6 mt-16 md:mt-24">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
           <div className="flex flex-col items-center md:items-start w-full md:w-auto">
@@ -779,38 +779,37 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
               <div className="bg-zinc-500 text-black p-3 text-center border-b-2 border-black">
                 <span className="font-display text-3xl md:text-4xl tracking-widest uppercase font-black">{month.name}</span>
               </div>
-              <div className="w-full">
+              <div className="w-full overflow-hidden">
                 <table className="w-full text-left border-collapse table-fixed">
                   <thead>
-                    <tr className="bg-black text-white font-mono text-[10px] md:text-[12px] uppercase">
-                      <th className="p-2 border-r border-white/20 w-[18%] text-center">DIA</th>
-                      <th className="p-2 border-r border-white/20 w-[12%] text-center">SEM</th>
-                      <th className="p-2 border-r border-white/20 w-[22%] text-center">TIPO</th>
-                      <th className="p-2 border-r border-white/20 w-[30%] text-center">EVENTO</th>
-                      <th className="p-2 w-[18%] text-center">LOCAL</th>
+                    <tr className="bg-black text-white font-mono text-[8px] md:text-[9px] uppercase">
+                      <th className="p-1 border-r border-white/20 w-[12%] text-center">DIA</th>
+                      <th className="p-1 border-r border-white/20 w-[11%] text-center">SEM</th>
+                      <th className="p-1 border-r border-white/20 w-[23%] text-center">TIPO</th>
+                      <th className="p-1 border-r border-white/20 w-[35%] text-center">EVENTO</th>
+                      <th className="p-1 w-[19%] text-center">LOCAL</th>
                     </tr>
                   </thead>
                   <tbody>
                     {month.events.map((event, eventIdx) => (
                       <tr key={eventIdx} className={`border-b-2 border-black h-12 transition-colors ${event.highlight ? 'bg-zinc-300' : 'bg-white'}`}>
-                        <td className="p-1 border-r-2 border-black text-center">
-                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-display text-xl md:text-2xl text-black font-black uppercase outline-none" value={event.day} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'day', e.target.value)} />
+                        <td className="p-0 border-r-2 border-black text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-display text-lg md:text-xl text-black font-black uppercase outline-none" value={event.day} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'day', e.target.value)} />
                         </td>
-                        <td className="p-1 border-r-2 border-black text-center">
-                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[10px] md:text-xs text-black font-black uppercase outline-none" value={event.weekday} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'weekday', e.target.value)} />
+                        <td className="p-0 border-r-2 border-black text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[9px] text-black font-black uppercase outline-none" value={event.weekday} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'weekday', e.target.value)} />
                         </td>
-                        <td className="p-1 border-r-2 border-black text-center">
-                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[9px] md:text-[10px] text-black font-black uppercase outline-none" value={event.type} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'type', e.target.value)} />
+                        <td className="p-0.5 border-r-2 border-black text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[8px] text-black font-bold uppercase outline-none leading-none" value={event.type} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'type', e.target.value)} />
                         </td>
-                        <td className="p-1 border-r-2 border-black text-center">
-                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-display text-lg md:text-xl text-black font-black uppercase outline-none" value={event.title} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'title', e.target.value)} />
+                        <td className="p-0.5 border-r-2 border-black text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-display text-[11px] md:text-[13px] text-black font-black uppercase outline-none leading-tight" value={event.title} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'title', e.target.value)} />
                         </td>
-                        <td className="p-1 text-center">
-                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[9px] md:text-[10px] text-black font-black uppercase outline-none" value={event.location} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'location', e.target.value)} />
+                        <td className="p-0.5 text-center">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[8px] text-black font-bold uppercase outline-none leading-none" value={event.location} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'location', e.target.value)} />
                         </td>
                       </tr>
                     ))}
-                    {/* Linhas vazias para manter o grid alinhado */}
                     {Array.from({ length: Math.max(0, 7 - month.events.length) }).map((_, i) => (
                       <tr key={`empty-${i}`} className="border-b-2 border-black h-12 bg-white">
                         <td className="border-r-2 border-black"></td>
