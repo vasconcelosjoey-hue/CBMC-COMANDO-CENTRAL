@@ -121,7 +121,7 @@ const DEFAULT_ANNUAL_CALENDAR: MonthCalendar[] = [
   {
     name: "MAIO",
     events: [
-      { day: "9", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "09", weekday: "SAB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
       { day: "17", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
       { day: "29", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
       { day: "30", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "PAUL" },
@@ -130,11 +130,12 @@ const DEFAULT_ANNUAL_CALENDAR: MonthCalendar[] = [
   {
     name: "JUNHO",
     events: [
-      { day: "6", weekday: "SÁB", type: "ANIVERSÁRIO", title: "PERVERSO", location: "X", highlight: true },
+      { day: "6", weekday: "SAB", type: "ANIVERSÁRIO", title: "PERVERSO", location: "X", highlight: true },
       { day: "7", weekday: "DOM", type: "DIA INTEIRO", title: "MANUTENÇÃO GERAL", location: "SEDE CBMC" },
-      { day: "13", weekday: "SÁB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
+      { day: "13", weekday: "SAB", type: "DIA INTEIRO", title: "REUNIÃO DE ATA", location: "SEDE CBMC" },
       { day: "21", weekday: "DOM", type: "DIA INTEIRO", title: "CAFÉ NA ESTRADA", location: "X" },
       { day: "26", weekday: "SEX", type: "DIA INTEIRO", title: "GIRO - NOTURNO", location: "X" },
+      { day: "27", weekday: "SÁB", type: "DIA INTEIRO", title: "VISITA AO CUMPADRE", location: "JONAS" },
     ]
   },
   {
@@ -762,7 +763,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
         </div>
       </div>
 
-      {/* CALENDÁRIO ANUAL 2026 - OTIMIZADO PARA LEGIBILIDADE */}
+      {/* CALENDÁRIO ANUAL 2026 - OTIMIZADO PARA LEGIBILIDADE TOTAL */}
       <div className="space-y-6 mt-16 md:mt-24">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
           <div className="flex flex-col items-center md:items-start w-full md:w-auto">
@@ -775,19 +776,19 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
 
         <div ref={annualCalendarRef} className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 p-1">
           {annualCalendar.map((month, monthIdx) => (
-            <div key={month.name} className="border-4 border-black bg-white shadow-document flex flex-col">
+            <div key={month.name} className="border-4 border-black bg-white shadow-document flex flex-col h-full">
               <div className="bg-zinc-500 text-black p-3 text-center border-b-2 border-black">
                 <span className="font-display text-3xl md:text-4xl tracking-widest uppercase font-black">{month.name}</span>
               </div>
-              <div className="w-full overflow-hidden">
-                <table className="w-full text-left border-collapse table-fixed">
+              <div className="w-full overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse table-fixed min-w-[320px]">
                   <thead>
                     <tr className="bg-black text-white font-mono text-[8px] md:text-[9px] uppercase">
-                      <th className="p-1 border-r border-white/20 w-[12%] text-center">DIA</th>
-                      <th className="p-1 border-r border-white/20 w-[11%] text-center">SEM</th>
-                      <th className="p-1 border-r border-white/20 w-[23%] text-center">TIPO</th>
-                      <th className="p-1 border-r border-white/20 w-[35%] text-center">EVENTO</th>
-                      <th className="p-1 w-[19%] text-center">LOCAL</th>
+                      <th className="p-1 border-r border-white/20 w-[10%] text-center">DIA</th>
+                      <th className="p-1 border-r border-white/20 w-[10%] text-center">SEM</th>
+                      <th className="p-1 border-r border-white/20 w-[22%] text-center">TIPO</th>
+                      <th className="p-1 border-r border-white/20 w-[38%] text-center">EVENTO</th>
+                      <th className="p-1 w-[20%] text-center">LOCAL</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -799,13 +800,13 @@ const Dashboard: React.FC<DashboardProps> = ({ members, heroImage, onUpdateHero,
                         <td className="p-0 border-r-2 border-black text-center">
                           <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[9px] text-black font-black uppercase outline-none" value={event.weekday} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'weekday', e.target.value)} />
                         </td>
-                        <td className="p-0.5 border-r-2 border-black text-center">
+                        <td className="p-0.5 border-r-2 border-black text-center overflow-hidden">
                           <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[8px] text-black font-bold uppercase outline-none leading-none" value={event.type} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'type', e.target.value)} />
                         </td>
-                        <td className="p-0.5 border-r-2 border-black text-center">
-                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-display text-[11px] md:text-[13px] text-black font-black uppercase outline-none leading-tight" value={event.title} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'title', e.target.value)} />
+                        <td className="p-0.5 border-r-2 border-black text-center overflow-hidden">
+                          <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-display text-[11px] md:text-[13px] text-black font-black uppercase outline-none leading-tight px-1" value={event.title} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'title', e.target.value)} />
                         </td>
-                        <td className="p-0.5 text-center">
+                        <td className="p-0.5 text-center overflow-hidden">
                           <input disabled={!isAdmin} className="w-full bg-transparent border-none text-center font-mono text-[8px] text-black font-bold uppercase outline-none leading-none" value={event.location} onChange={(e) => updateAnnualCalendar(monthIdx, eventIdx, 'location', e.target.value)} />
                         </td>
                       </tr>
