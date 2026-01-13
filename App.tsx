@@ -31,17 +31,20 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   
-  // COLE O LINK DO SEU MP3 DO FIREBASE ABAIXO:
-  const AUDIO_URL = "https://firebasestorage.googleapis.com/v0/b/cbmc-comando-central.firebasestorage.app/o/SUA_MUSICA.mp3?alt=media";
+  // LINK DEFINITIVO COM TOKEN ATUALIZADO
+  const AUDIO_URL = "https://firebasestorage.googleapis.com/v0/b/cbmc-comando-central.firebasestorage.app/o/HINO%20-%20CUMPADRES%20DO%20BRASIL.mp3?alt=media&token=29b4d7ed-3c5d-440a-b04d-2ec808473437";
 
   const toggleAudio = () => {
     if (audioRef.current) {
       if (!isPlaying) {
+        audioRef.current.load();
         audioRef.current.play()
-          .then(() => setIsPlaying(true))
+          .then(() => {
+            setIsPlaying(true);
+          })
           .catch(err => {
-            console.error("Erro ao tocar: O navegador exige um clique antes.", err);
-            alert("Clique em 'LIGAR SOM' para iniciar a rádio CBMC!");
+            console.error("Erro de áudio:", err);
+            alert("ERRO DE CONEXÃO: O navegador bloqueou o áudio ou o link expirou. Tente clicar novamente.");
           });
       } else {
         audioRef.current.pause();
