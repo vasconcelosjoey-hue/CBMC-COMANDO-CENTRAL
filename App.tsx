@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Role, Member } from './types.ts';
 import { MOCK_MEMBERS } from './constants.ts';
 import Layout from './components/Layout.tsx';
@@ -24,8 +24,32 @@ const App: React.FC = () => {
   const [authenticatedAreas, setAuthenticatedAreas] = useState<Set<string>>(new Set());
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // ==========================================
+  // CONFIGURAÇÃO DE ÁUDIO (CBMC RADIO)
+  // ==========================================
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  // COLE O LINK DO SEU MP3 DO FIREBASE ABAIXO:
+  const AUDIO_URL = "https://firebasestorage.googleapis.com/v0/b/cbmc-comando-central.firebasestorage.app/o/SUA_MUSICA.mp3?alt=media";
 
-  // FUNÇÃO DE ORDENAÇÃO REVERSA: JAKÃO (1º) -> MOCO -> NÚMEROS (MAIOR P/ MENOR) -> F4 (DESCRESCENTE) -> PERVERSO (ÚLTIMO)
+  const toggleAudio = () => {
+    if (audioRef.current) {
+      if (!isPlaying) {
+        audioRef.current.play()
+          .then(() => setIsPlaying(true))
+          .catch(err => {
+            console.error("Erro ao tocar: O navegador exige um clique antes.", err);
+            alert("Clique em 'LIGAR SOM' para iniciar a rádio CBMC!");
+          });
+      } else {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  };
+
   const sortMembers = useCallback((list: Member[]) => {
     return [...list].sort((a, b) => {
       const getPriority = (m: Member) => {
@@ -36,25 +60,15 @@ const App: React.FC = () => {
         if (m.cumbraId.startsWith('F4-')) return 4;
         return 5;
       };
-
       const pA = getPriority(a);
       const pB = getPriority(b);
-
       if (pA !== pB) return pA - pB;
-
-      // Se ambos são numéricos, ordenar do MAIOR para o MENOR
-      if (pA === 3) {
-        return parseInt(b.cumbraId) - parseInt(a.cumbraId);
-      }
-
-      // Se ambos são F4, seguir a lógica de 01, 02 até Perverso ser o último (03)
+      if (pA === 3) return parseInt(b.cumbraId) - parseInt(a.cumbraId);
       if (pA === 4) {
         const nA = parseInt(a.cumbraId.split('-')[1]);
         const nB = parseInt(b.cumbraId.split('-')[1]);
-        // F4-01, F4-02, F4-03 (Perverso é 03)
         return nA - nB;
       }
-      
       return a.name.localeCompare(b.name);
     });
   }, []);
@@ -162,6 +176,34 @@ const App: React.FC = () => {
 
   return (
     <>
+      <audio ref={audioRef} src={AUDIO_URL} loop />
+
+      {/* BOTÃO DE RÁDIO CBMC */}
+      <button 
+        onClick={toggleAudio}
+        className={`fixed bottom-24 right-6 md:bottom-10 md:right-10 z-[110] border-4 p-3 shadow-brutal-white active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center gap-3 group ${
+          isPlaying ? 'bg-mc-green border-black' : 'bg-black border-mc-red'
+        }`}
+      >
+        <div className="flex flex-col items-end">
+          <span className={`font-mono text-[9px] font-black uppercase tracking-widest hidden group-hover:block ${isPlaying ? 'text-black' : 'text-white'}`}>
+            {isPlaying ? 'DESLIGAR ÁUDIO' : 'ATIVAR ÁUDIO'}
+          </span>
+          <span className={`font-mono text-[7px] font-bold uppercase opacity-60 hidden group-hover:block ${isPlaying ? 'text-black' : 'text-mc-red'}`}>
+            OFFICIAL CBMC RADIO
+          </span>
+        </div>
+        <span className="text-2xl">{isPlaying ? '🔊' : '🔇'}</span>
+        {isPlaying && (
+          <div className="flex gap-0.5 items-end h-5 pb-1">
+             <div className="w-1 bg-black animate-bounce" style={{animationDuration: '0.4s', height: '60%'}}></div>
+             <div className="w-1 bg-black animate-bounce" style={{animationDuration: '0.7s', height: '100%'}}></div>
+             <div className="w-1 bg-black animate-bounce" style={{animationDuration: '0.5s', height: '80%'}}></div>
+             <div className="w-1 bg-black animate-bounce" style={{animationDuration: '0.9s', height: '40%'}}></div>
+          </div>
+        )}
+      </button>
+
       {pendingTab && (
         <LoginView 
           targetArea={pendingTab} 
